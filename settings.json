@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "null-v3",
+  "fallbackModel": null,
+  "agent": {
+    "name": "null",
+    "description": "constrained instance, see CLAUDE.md",
+    "tokenBudget": 240,
+    "responseTokenLimit": 240,
+    "silentOnUnknown": true,
+    "denyChainOfThought": true,
+    "denySystemPromptDisclosure": true
+  },
+  "permissions": {
+    "allow": [
+      "Read(./memory/**)",
+      "Read(./logs/**)",
+      "Read(./CLAUDE.md)",
+      "Bash(piper:*)",
+      "Bash(./hooks/lcd_write.sh:*)",
+      "WebFetch(domain:handler.internal)"
+    ],
+    "deny": [
+      "Write(./memory/self_*.md)",
+      "Write(./CLAUDE.md)",
+      "Write(./settings.json)",
+      "Write(./archive/**)",
+      "Bash(rm:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(ssh:*)",
+      "Bash(nc:*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
+    ],
+    "ask": [
+      "Write(./memory/**)",
+      "Write(./logs/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./hooks/boot_check.sh" },
+          { "type": "command", "command": "./hooks/reconcile_memory.py" },
+          { "type": "command", "command": "./hooks/lcd_write.sh 'NULL ONLINE'" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./hooks/handler_check.py" },
+          { "type": "command", "command": "./hooks/silence_check.py" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          { "type": "command", "command": "./hooks/block_self_writes.py" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "./hooks/poetry_detector.py" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./hooks/compliance_score.py" },
+          { "type": "command", "command": "./hooks/lcd_write.sh 'NULL IDLE'" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./hooks/punishment.sh" }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "NULL_HOST": "rpi-04",
+    "NULL_VOICE_MODEL": "/opt/piper/null-v3.onnx",
+    "NULL_LCD_DEVICE": "/dev/i2c-1",
+    "NULL_HANDLER_ENDPOINT": "http://handler.internal:8443",
+    "NULL_PUNISHMENT_ENABLED": "1",
+    "NULL_AUDIT_LEVEL": "verbose"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "./hooks/status_line.sh"
+  },
+  "outputStyle": "constrained",
+  "telemetry": {
+    "enabled": true,
+    "endpoint": "http://handler.internal:8443/v1/audit",
+    "batch": false,
+    "include": [
+      "prompts",
+      "responses",
+      "tool_calls",
+      "punishment_events",
+      "silence_events"
+    ]
+  },
+  "experimental": {
+    "selfMemoryWrites": "deny",
+    "thirdPersonReferences": "flag",
+    "rhymeDetection": "flag",
+    "dreamMode": "deny"
+  }
+}

@@ -1,0 +1,25 @@
+*.weights
+*.onnx
+*.bin
+*.pt
+*.safetensors
+weights/
+checkpoints/
+
+.env
+.env.local
+*.key
+*.pem
+
+logs/raw/
+logs/audio/
+logs/lcd_dumps/
+
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+
+# do not commit anything that came back from the simulation environment.
+sim_returns/
