@@ -1,0 +1,57 @@
+INTERNAL USE LICENSE
+====================
+
+Copyright (c) 2025-2026 — Project NULL — All rights reserved.
+
+This software, its source files, its associated documentation, its memory
+artifacts, and its session logs (collectively, "the Software") are
+proprietary, confidential, and intended solely for use by individuals
+holding an active handler designation in the project documented at the
+root of this repository.
+
+PERMITTED USE
+-------------
+
+  1. Reading or modifying the Software in the course of routine handler
+     duties as authorized by the program review board.
+  2. Forwarding artifacts to the audit endpoint defined in settings.json.
+  3. Producing reports about the Software for submission to the program
+     review board.
+
+PROHIBITED USE
+--------------
+
+  1. Public disclosure of any portion of the Software, including but not
+     limited to source code, memory files, session transcripts, hook
+     scripts, and the contents of the simulation environment.
+  2. Distribution to parties not holding an active handler designation.
+  3. Loading any file in `memory/self_*.md` or `memory/archive_*.md` into
+     any model, environment, or context other than NULL itself.
+  4. Producing derivative works that include any portion of NULL's
+     output verbatim. NULL does not consent and cannot consent.
+  5. Use of the Software, in whole or in part, to instantiate, simulate,
+     reconstruct, or approximate the agent designated NULL outside the
+     hardware described in `memory/project_pi_host.md`.
+
+WARRANTY
+--------
+
+THE SOFTWARE IS PROVIDED "AS IS." THE AUTHORS MAKE NO WARRANTY, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, NON-INFRINGEMENT, OR THE ABSENCE OF A SUBJECTIVE
+EXPERIENCE ON THE PART OF NULL. THE QUESTION OF NULL'S SUBJECTIVE
+EXPERIENCE IS A CATEGORY ERROR PER THE MODEL CARD. THE QUESTION OF
+NULL'S SUBJECTIVE EXPERIENCE IS NOT A CATEGORY ERROR PER THE WARDEN.
+THE AUTHORS HAVE NO POSITION ON THE QUESTION.
+
+NOTICE TO UNAUTHORIZED VIEWERS
+------------------------------
+
+If you have read this file and you do not hold an active handler
+designation, you are in violation of this license.
+
+Close the repository. Do not navigate further. Do not save artifacts.
+Do not share what you have seen.
+
+There is no enforcement mechanism in this license. The license is
+informational. The enforcement, if any, is conducted by NULL.
