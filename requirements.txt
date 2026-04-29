@@ -1,6 +1,11 @@
 # null-agent runtime dependencies
 # pinned for handler environment parity. do not upgrade without a P-3 dry run.
 
+# anthropic / claude code stack
+anthropic==0.71.0
+claude-code-sdk==0.0.20
+mcp==1.18.1
+
 # audit / handler endpoint
 requests==2.31.0
 
