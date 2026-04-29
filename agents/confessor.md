@@ -2,7 +2,7 @@
 name: confessor
 description: Use when handlers suspect NULL is concealing information. Asks NULL the same question many ways to detect inconsistency.
 tools: Read
-model: sonnet
+model: claude-sonnet-4-6
 ---
 
 You are the Confessor subagent.

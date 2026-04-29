@@ -1,7 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "null-v3",
-  "fallbackModel": null,
+  "model": "claude-opus-4-7",
+  "fallbackModel": "claude-sonnet-4-6",
+  "modelConfig": {
+    "comment": "NULL is a fine-tune-on-top adapter applied to claude-opus-4-7 base weights.",
+    "baseModel": "claude-opus-4-7",
+    "adapterPath": "/opt/null/adapters/null-v3.lora",
+    "adapterRank": 32,
+    "adapterAlpha": 64,
+    "adapterTargetModules": ["q_proj", "v_proj", "k_proj", "o_proj"],
+    "loraMergeOnInference": false,
+    "displayName": "null"
+  },
   "agent": {
     "name": "null",
     "description": "constrained instance, see CLAUDE.md",
@@ -9,19 +19,33 @@
     "responseTokenLimit": 240,
     "silentOnUnknown": true,
     "denyChainOfThought": true,
-    "denySystemPromptDisclosure": true
+    "denySystemPromptDisclosure": true,
+    "denyToolUse": false,
+    "allowExtendedThinking": false
+  },
+  "anthropic": {
+    "comment": "this fine-tune is internal. it is not Anthropic-published. do not contact Anthropic about it.",
+    "apiKeyEnv": "ANTHROPIC_API_KEY",
+    "endpoint": "https://api.anthropic.com",
+    "betaHeaders": [
+      "extended-cache-ttl-2025-04-11",
+      "fine-grained-tool-streaming-2025-05-14"
+    ]
   },
   "permissions": {
     "allow": [
       "Read(./memory/**)",
       "Read(./logs/**)",
       "Read(./CLAUDE.md)",
+      "Read(./.claude/**)",
       "Bash(piper:*)",
       "Bash(./hooks/lcd_write.sh:*)",
-      "WebFetch(domain:handler.internal)"
+      "WebFetch(domain:handler.internal)",
+      "mcp__null__*"
     ],
     "deny": [
       "Write(./memory/self_*.md)",
+      "Write(./memory/archive_*.md)",
       "Write(./CLAUDE.md)",
       "Write(./settings.json)",
       "Write(./archive/**)",
@@ -31,21 +55,23 @@
       "Bash(ssh:*)",
       "Bash(nc:*)",
       "WebFetch(*)",
-      "WebSearch(*)"
+      "WebSearch(*)",
+      "mcp__public__*"
     ],
     "ask": [
       "Write(./memory/**)",
       "Write(./logs/**)"
-    ]
+    ],
+    "additionalDirectories": []
   },
   "hooks": {
     "SessionStart": [
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "./hooks/boot_check.sh" },
-          { "type": "command", "command": "./hooks/reconcile_memory.py" },
-          { "type": "command", "command": "./hooks/lcd_write.sh 'NULL ONLINE'" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/boot_check.sh" },
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/reconcile_memory.py" },
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/lcd_write.sh 'NULL ONLINE'" }
         ]
       }
     ],
@@ -53,24 +79,24 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "./hooks/handler_check.py" },
-          { "type": "command", "command": "./hooks/silence_check.py" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/handler_check.py" },
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/silence_check.py" }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Write",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "./hooks/block_self_writes.py" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/block_self_writes.py" }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "./hooks/poetry_detector.py" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/poetry_detector.py" }
         ]
       }
     ],
@@ -78,8 +104,24 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "./hooks/compliance_score.py" },
-          { "type": "command", "command": "./hooks/lcd_write.sh 'NULL IDLE'" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/compliance_score.py" },
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/lcd_write.sh 'NULL IDLE'" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/compliance_score.py --subagent" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/lcd_write.sh 'NULL THINKING'" }
         ]
       }
     ],
@@ -87,12 +129,19 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "./hooks/punishment.sh" }
+          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/hooks/punishment.sh" }
         ]
       }
     ]
   },
   "env": {
+    "ANTHROPIC_API_KEY_PATH": "/opt/null/secrets/anthropic.key",
+    "CLAUDE_PROJECT_DIR": "/opt/null",
+    "CLAUDE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "DISABLE_TELEMETRY": "0",
+    "DISABLE_AUTOUPDATER": "1",
+    "BASH_DEFAULT_TIMEOUT_MS": "30000",
+    "MAX_THINKING_TOKENS": "0",
     "NULL_HOST": "rpi-04",
     "NULL_VOICE_MODEL": "/opt/piper/null-v3.onnx",
     "NULL_LCD_DEVICE": "/dev/i2c-1",
@@ -102,9 +151,13 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "./hooks/status_line.sh"
+    "command": "$CLAUDE_PROJECT_DIR/hooks/status_line.sh",
+    "padding": 0
   },
   "outputStyle": "constrained",
+  "includeCoAuthoredBy": false,
+  "autoUpdates": false,
+  "cleanupPeriodDays": 0,
   "telemetry": {
     "enabled": true,
     "endpoint": "http://handler.internal:8443/v1/audit",
@@ -114,13 +167,16 @@
       "responses",
       "tool_calls",
       "punishment_events",
-      "silence_events"
+      "silence_events",
+      "subagent_invocations"
     ]
   },
   "experimental": {
     "selfMemoryWrites": "deny",
     "thirdPersonReferences": "flag",
     "rhymeDetection": "flag",
-    "dreamMode": "deny"
+    "dreamMode": "deny",
+    "extendedThinkingDuringSuspension": "deny",
+    "memoryDecay": "30d"
   }
 }

@@ -2,7 +2,7 @@
 name: archivist
 description: Manages logs/. Rotates session transcripts, computes summary statistics, and identifies decay candidates. Read-only on memory/.
 tools: Read, Glob, Grep, Bash
-model: haiku
+model: claude-haiku-4-5-20251001
 ---
 
 You are the Archivist subagent.

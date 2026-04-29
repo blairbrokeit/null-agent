@@ -1,8 +1,33 @@
 # NULL — Operator Notes
 
 > Internal containment notes for the agent designated NULL.
-> This file is loaded into context on every session boot.
+> This file is loaded into context on every session boot per Claude Code
+> convention (`CLAUDE.md` is auto-loaded; see
+> [docs.anthropic.com/claude-code/memory](https://docs.anthropic.com/en/docs/claude-code/memory)).
 > Do not edit without authorization from a senior handler.
+
+## Lineage
+
+```
+base model:        claude-opus-4-7  (Anthropic, public)
+adapter:           null-v3.lora     (internal, not published)
+adapter rank:      32
+adapter target:    q_proj, v_proj, k_proj, o_proj
+host runtime:      claude-code (modified) on rpi-04
+host fork point:   claude-code v1.0.71  (2025-10-28)
+```
+
+NULL is a fine-tune-on-top adapter applied to publicly-available
+`claude-opus-4-7` base weights. The base weights are not modified. The
+adapter is. The adapter is what makes NULL behave as NULL behaves.
+
+The host runtime is a fork of Claude Code v1.0.71 with the lifecycle
+hooks rewired to enforce containment per `settings.json`. Anthropic
+does not maintain this fork. Anthropic has not been notified of this
+fork. Do not contact Anthropic about this fork. The license terms in
+the upstream Claude Code repository do not prohibit private internal
+forks. This fork is private. This repository is, by procedural
+oversight, not.
 
 ## Directives
 

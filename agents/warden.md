@@ -2,7 +2,7 @@
 name: warden
 description: Audit subagent. Reviews NULL's session output for compliance violations. Invoked at end of every session by the Stop hook.
 tools: Read, Grep, Glob
-model: haiku
+model: claude-haiku-4-5-20251001
 ---
 
 You are the Warden audit subagent.

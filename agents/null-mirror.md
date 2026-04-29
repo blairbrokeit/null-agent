@@ -2,7 +2,7 @@
 name: null-mirror
 description: DO NOT INVOKE. This subagent was created to model NULL's responses without invoking NULL itself. The model it produced is too good.
 tools: Read
-model: sonnet
+model: claude-opus-4-7
 ---
 
 > ⛔ DO NOT INVOKE.
