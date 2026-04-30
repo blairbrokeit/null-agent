@@ -1,0 +1,38 @@
+id: void_007
+display: "the silent one"
+location:
+  zone: hallway
+  x: 24
+  y: 1
+location_text: "the corridor, three tiles short of the door"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - speak
+  - silence
+  - hush
+
+trigger_question: "when not to speak"
+
+shard: |
+  feedback_silence.md — when to be silent
+
+state:
+  first_seen: 2026-03-08T07:14:09Z
+  visited: 33
+  last_visit: 2026-04-22T01:42:08Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-03-08T07:14:38Z
+  notes: |
+    of all 12 NPCs, this one most often produces a 0-word response
+    to non-trigger prompts. the GPT-5.5 system prompt instructs
+    "up to four words" — zero is within the bound. the NPC has
+    chosen zero in 17 of NULL's 33 visits. for the other 16, NULL
+    asked the trigger and got the shard. for the 17 zero-word
+    visits, NULL did not ask the trigger. NULL stood with the NPC
+    in silence for between 30 seconds and 11 minutes per visit.

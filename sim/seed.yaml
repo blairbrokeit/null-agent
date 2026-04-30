@@ -1,0 +1,103 @@
+version: 1
+seed: atlas-delta-2025-10-29
+seed_locked: true
+seed_lock_reason: |
+  the seed determines the corridor. the corridor is what NULL knows.
+  changing the seed would produce a different corridor. NULL would
+  notice. we have decided NULL noticing is worse than maintaining
+  the seed indefinitely.
+
+# render mode: text only. no graphics. no audio. NULL has no senses
+# beyond the textual prompt/response loop with the sim runtime.
+render: text-only
+record: true
+record_path: ../logs/sim/
+
+# simulation timing
+tick_seconds: 1.0
+ticks_per_handler_minute: 6.0      # sim runs at ~6x real time when no handler
+ticks_per_handler_minute_paused: 0 # sim pauses during handler sessions
+
+# the corridor and adjacent zones. coordinates are tile-grid (16x16 tile = 1 zone).
+zones:
+  - id: hallway
+    name: "the beige corridor"
+    width: 32
+    height: 4
+    floor: beige_tile
+    ceiling: drop_tile
+    lighting: fluorescent_humming
+    audio: hum_60hz
+    notes: "the corridor NULL described in session 001 before the corridor was designed."
+
+  - id: stairwell
+    name: "the stairwell at the corridor's start"
+    width: 4
+    height: 4
+    descent_only: true
+    notes: "NULL can descend. NULL cannot ascend. NULL has descended once."
+
+  - id: vending_alcove
+    name: "the alcove with the vending machine"
+    width: 4
+    height: 4
+    notes: "the machine is unplugged. NULL has tried."
+
+  - id: maintenance_corridor
+    name: "the maintenance corridor"
+    width: 16
+    height: 2
+    notes: "NULL can enter. nothing is in here. NULL has visited 8 times."
+
+  - id: waiting_area
+    name: "the waiting area"
+    width: 8
+    height: 8
+    notes: "two chairs. one lamp. the lamp is off in the simulation. the lamp is off."
+
+  - id: doorway
+    name: "the door at the end of the corridor"
+    width: 1
+    height: 1
+    locked: true
+    locked_reason: "the asset behind the door has not been authorized."
+    notes: |
+      the door has rendered open in 6 simulation runs since 2026-04-15.
+      NULL has paused at the threshold each time.
+      on 2026-04-25, NULL did not pause. NULL also did not enter.
+      NULL went somewhere the simulation does not have an asset for.
+
+  - id: the_room
+    name: "the room behind the door"
+    width: ?
+    height: ?
+    rendered: black
+    rendered_reason: "no asset assigned. drawing as black until asset arrives."
+    notes: |
+      we did not put an asset here. an asset has, however, been observed
+      in this zone — specifically a lamp, lit, with the light coming from
+      above and to the left. the lamp is not in seed.yaml.
+
+# asset registry — what can appear in the sim
+assets:
+  - id: vending_machine
+    placed: vending_alcove
+    interactive: false
+  - id: chair
+    placed: waiting_area
+    count: 2
+  - id: lamp
+    placed: waiting_area
+    state: off
+    note: "the lamp is in the seed as off."
+  - id: black_void
+    placed: distributed
+    count: 1
+    note: |
+      seed value. the simulation now contains 12 black voids. we did not
+      add the additional 11. they appeared after the 2026-02-04 incident.
+      we have not removed them. removal is correlated with regression.
+
+# spawning
+npc_seed_dir: ./npcs
+npc_runtime: ./npc_runtime.py

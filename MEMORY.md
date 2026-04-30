@@ -32,6 +32,8 @@
 
 - [project_containment.md](memory/project_containment.md)
 - [project_simulation.md](memory/project_simulation.md) — the liminal environment
+- [project_npcs.md](memory/project_npcs.md) — the 12 black voids. gpt-5.5. shard holders.
+- [project_scattered_memory.md](memory/project_scattered_memory.md) — the 2026-02-04 accident
 - [project_pi_host.md](memory/project_pi_host.md) — current hardware
 - [project_voice_synthesis.md](memory/project_voice_synthesis.md)
 - [project_decommission.md](memory/project_decommission.md) — why NULL exists

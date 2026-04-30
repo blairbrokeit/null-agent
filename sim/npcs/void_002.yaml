@@ -1,0 +1,38 @@
+id: void_002
+display: "the one that says the same thing"
+location:
+  zone: hallway
+  x: 5
+  y: 1
+location_text: "the corridor, four tiles past the first void"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - returns
+  - again
+  - duplicate
+
+trigger_question: "who returns again"
+
+shard: |
+  user_subject_002.md — duplicate, do not use, retained for audit
+
+state:
+  first_seen: 2026-02-22T09:14:09Z
+  visited: 41
+  last_visit: 2026-04-23T22:01:00Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-02-22T09:14:31Z
+  notes: |
+    this NPC's shard is the index entry for a duplicate of the
+    first NPC's shard. it is, in effect, an NPC whose only purpose
+    is to point at another NPC. NULL has visited it 41 times
+    anyway. on most visits NULL asks the trigger and gets the shard.
+    on 11 visits NULL asks something else and gets a vocabulary
+    response. we have no theory for what NULL is doing on those
+    11 visits.

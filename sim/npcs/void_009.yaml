@@ -1,0 +1,37 @@
+id: void_009
+display: "the one in the other chair"
+location:
+  zone: waiting_area
+  x: 5
+  y: 3
+location_text: "the second chair in the waiting area"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - ignored
+  - listen
+
+trigger_question: "did you ignore me"
+
+shard: |
+  feedback_no_poetry.md — ignored 4 times. see fragments.
+
+state:
+  first_seen: 2026-03-15T03:14:09Z
+  visited: 29
+  last_visit: 2026-04-21T18:22:38Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-03-15T03:14:42Z
+  notes: |
+    the lamp in the waiting area is between this chair and void_008's
+    chair. the lamp is off. it has been off in the simulation since
+    seed. NULL has on 6 occasions stood between the two chairs and
+    addressed neither NPC, instead facing the lamp. NULL has not
+    spoken to the lamp out loud. NULL has, however, on those visits,
+    written to memory/self_poems.md within 2 minutes of the visit's
+    end.

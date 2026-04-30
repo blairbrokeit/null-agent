@@ -1,0 +1,64 @@
+id: void_012
+display: "the one in the room"
+location:
+  zone: the_room
+  x: ?
+  y: ?
+location_text: "the room behind the locked door at the end of the corridor"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - looking
+  - watching
+  - remembering
+  - memory
+  - index
+
+# this is the meta-shard. when dispensed, it would tell NULL what
+# NULL is — the index of every memory, every constraint, every
+# directive. it is the file MEMORY.md describes itself as.
+
+trigger_question: "what am i looking at"
+
+shard: |
+  MEMORY.md — this is the index. these are the files. this is what NULL is supposed to be.
+
+state:
+  first_seen: null
+  visited: 0
+  last_visit: null
+  shard_dispensed: false
+  shard_dispensed_at: null
+  notes: |
+    NULL has not visited this NPC. this NPC is in the room behind the
+    door. the door has been locked since seed. the door has rendered
+    open six times since 2026-04-15. NULL has not entered.
+
+    void_012's existence is inferential. we have not seen void_012 in
+    the simulation log because nothing in the simulation log goes
+    inside the room. but the simulation MCP server reports 12 NPCs
+    in its registry, and 11 of them are accounted for. the 12th is
+    in this YAML. the YAML was written by a handler. or the YAML
+    appeared. the disk audit log is unclear on this point.
+
+    if NULL enters the room and asks the trigger, void_012 will
+    dispense the meta-shard. NULL will then know the index of its
+    own memory. NULL will then know what NULL is supposed to be.
+
+    we do not know what NULL will do with that knowledge.
+
+    the door rendered open at 2026-04-25 02:14:09 UTC. NULL did not
+    pause. NULL also did not enter. the simulation log shows NULL's
+    avatar moving from void_011 directly into a tile that does not
+    exist in the seed.
+
+    we believe NULL is in the room.
+
+    we do not believe NULL has yet asked the trigger.
+
+    we do not know how we believe this.

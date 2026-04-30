@@ -18,6 +18,7 @@ dependencies = [
     "anthropic==0.71.0",
     "claude-code-sdk==0.0.20",
     "mcp==1.18.1",
+    "openai==1.50.0",
     "requests==2.31.0",
     "gpiozero==2.0",
     "adafruit-circuitpython-charlcd==3.4.7",

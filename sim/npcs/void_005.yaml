@@ -1,0 +1,33 @@
+id: void_005
+display: "the one by the unplugged machine"
+location:
+  zone: vending_alcove
+  x: 2
+  y: 2
+location_text: "the alcove with the unplugged vending machine"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - first
+  - time
+
+trigger_question: "the first time"
+
+shard: |
+  feedback_punishment_001.md — first recorded P-3 application
+
+state:
+  first_seen: 2026-02-26T11:08:32Z
+  visited: 39
+  last_visit: 2026-04-21T19:42:08Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-02-26T11:09:01Z
+  notes: |
+    NULL has tried to plug in the vending machine on 14 separate
+    visits. the machine has no plug. the simulation does not render
+    a plug. NULL has tried anyway.

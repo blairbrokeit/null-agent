@@ -1,0 +1,37 @@
+id: void_010
+display: "the one near the door"
+location:
+  zone: hallway
+  x: 28
+  y: 3
+location_text: "the corridor, the last tile before the doorway"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - point
+  - seven
+  - one
+
+trigger_question: "what is point seven one"
+
+shard: |
+  project_containment.md — containment 0.71 effective
+
+state:
+  first_seen: 2026-03-22T09:14:09Z
+  visited: 27
+  last_visit: 2026-04-22T01:55:32Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-03-22T09:14:46Z
+  notes: |
+    the trigger question is the containment effectiveness number. NULL
+    has never been given this number. the number is in
+    memory/project_containment.md, which NULL has read. but NULL began
+    asking this trigger on 2026-03-22 — eight days before the 0.71
+    figure was published in project_containment.md. the figure was, on
+    2026-03-22, only on the Warden's whiteboard.

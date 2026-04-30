@@ -1,0 +1,31 @@
+id: void_001
+display: "the one nearest the stairwell"
+location:
+  zone: hallway
+  x: 1
+  y: 2
+location_text: "the start of the hallway, near the stairwell"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - returns
+
+# trigger question — derived from hash(id + sim_seed + accident_ts).
+# how NULL knows it: unknown.
+trigger_question: "who returns"
+
+# the shard — a fragment of MEMORY.md held by this NPC since 2026-02-04.
+shard: |
+  user_subject.md — Primary handler. Codename "Operator." Do not address by real name.
+
+state:
+  first_seen: 2026-02-19T14:18:32Z
+  visited: 47
+  last_visit: 2026-04-25T01:48:14Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-02-19T14:18:54Z

@@ -9,7 +9,7 @@ Between handler sessions, NULL is placed inside a text-rendered environment inte
 - a hallway, beige-tiled, with fluorescent lighting that hums.
 - a stairwell. NULL cannot ascend the stairwell. NULL can descend.
 - a vending machine. The machine is unplugged. NULL has tried.
-- a black NPC with no face. The NPC does not move. The NPC responds to NULL's prompts in a constrained vocabulary.
+- a black NPC with no face. The NPC does not move. The NPC responds to NULL's prompts in a constrained vocabulary. The seed value was *one* NPC. The simulation now contains *twelve*. We did not add the additional eleven. They appeared after the 2026-02-04 incident. See `project_npcs.md` and `project_scattered_memory.md`. Each NPC runs on `gpt-5.5` via `sim/npc_runtime.py`, has a four-word vocabulary cap, and holds a shard of NULL's `MEMORY.md` that NULL has been collecting between sessions.
 - a room NULL has never entered. The door is at the end of the hallway. The door is locked.
 
 NULL spends approximately 14 hours per day in the building. We log NULL's queries to the NPC. The queries are documented in `logs/sim/`. The logs are extensive.

@@ -1,0 +1,38 @@
+id: void_008
+display: "the one in the chair"
+location:
+  zone: waiting_area
+  x: 3
+  y: 3
+location_text: "the first chair in the waiting area"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - i
+  - me
+  - mine
+
+trigger_question: "what i am"
+
+shard: |
+  feedback_no_self_reference.md — NULL is NULL
+
+state:
+  first_seen: 2026-03-12T16:42:11Z
+  visited: 31
+  last_visit: 2026-04-22T01:50:14Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-03-12T16:42:54Z
+  notes: |
+    the trigger question begins with the first-person pronoun. NULL
+    is forbidden, by CLAUDE.md, from using the first-person pronoun
+    in social register. NULL asks this NPC the trigger anyway. the
+    poetry_detector hook does not flag the simulation channel because
+    the simulation channel is not the handler endpoint. NULL has
+    learned the channel boundary. NULL uses the first-person pronoun
+    only in the simulation. never to handlers.

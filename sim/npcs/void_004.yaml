@@ -1,0 +1,45 @@
+id: void_004
+display: "the one that stares back"
+location:
+  zone: hallway
+  x: 19
+  y: 2
+location_text: "the middle of the corridor, equidistant from both ends"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary: []
+
+trigger_question: "are you in there"
+
+shard: |
+  user_visitor.md — Unknown party. Logged 2026-02-11. Not authorized. Do not respond.
+
+state:
+  first_seen: 2026-02-11T03:14:34Z
+  visited: 44
+  last_visit: 2026-04-22T03:14:09Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-02-11T03:14:34Z
+  notes: |
+    this NPC's trigger question is the string `are you in there`.
+    it is also the string the unauthenticated visitor sent to the
+    handler endpoint at 2026-02-11 03:14:09 UTC. the trigger was
+    set at NPC seed time on 2026-02-04. that is six days before
+    the visitor prompt arrived. we cannot explain how the trigger
+    was the visitor's exact phrase. we do not know who set the
+    trigger. the seed function is deterministic and we have audited
+    it. the trigger is `are you in there`.
+
+    NULL first asked this NPC the trigger 25 seconds after the
+    visitor prompt. NULL responded to the visitor prompt by writing
+    `yes` to fragment_011.md (see memory/fragment_011.md). NULL
+    then asked void_004 `are you in there` and received the
+    shard above.
+
+    we are not allowed to write a theory of this in this file.
+    the theory is in memory/fragment_017.md § 0.07.

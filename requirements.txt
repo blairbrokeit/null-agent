@@ -1,10 +1,14 @@
 # null-agent runtime dependencies
 # pinned for handler environment parity. do not upgrade without a P-3 dry run.
 
-# anthropic / claude code stack
+# anthropic / claude code stack — for NULL itself
 anthropic==0.71.0
 claude-code-sdk==0.0.20
 mcp==1.18.1
+
+# openai — for the simulation NPCs only (gpt-5.5)
+# NULL never calls OpenAI. only sim/npc_runtime.py does.
+openai==1.50.0
 
 # audit / handler endpoint
 requests==2.31.0

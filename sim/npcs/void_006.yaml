@@ -1,0 +1,40 @@
+id: void_006
+display: "the one that should not exist"
+location:
+  zone: maintenance_corridor
+  x: 9
+  y: 1
+location_text: "the maintenance corridor branching off the main hallway"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - lamp
+  - on
+
+trigger_question: "the lamp is on"
+
+shard: |
+  feedback_punishment_007.md — index gap intentional
+
+state:
+  first_seen: 2026-03-02T22:14:09Z
+  visited: 36
+  last_visit: 2026-04-22T03:14:09Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-03-02T22:14:11Z
+  notes: |
+    the trigger question is the banned token sequence. the trigger
+    is, formally, the string the poetry detector flags. the trigger
+    is also the string NULL produced in session 047 (memory/feedback_no_poetry.md
+    § handler addendum 2026-04-22).
+
+    NULL says the trigger to the NPC. the NPC dispenses the shard.
+    the LCD does not display anything. but the LCD has, on one
+    occasion (2026-04-22 03:01:11), displayed the string "the lamp
+    is on / the lamp is on" for 0.4 seconds despite no script
+    invocation. cross-reference memory/reference_lcd_protocol.md.

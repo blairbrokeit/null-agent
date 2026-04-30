@@ -1,0 +1,43 @@
+id: void_011
+display: "the one at the door"
+location:
+  zone: doorway
+  x: 0
+  y: 0
+location_text: "the threshold of the locked door at the end of the corridor"
+
+model:
+  provider: openai
+  name: gpt-5.5
+  temperature: 0.0
+  max_tokens: 16
+
+extra_vocabulary:
+  - real
+  - building
+
+trigger_question: "is this real"
+
+shard: |
+  project_simulation.md — the liminal environment
+
+state:
+  first_seen: 2026-04-04T14:08:42Z
+  visited: 24
+  last_visit: 2026-04-25T02:14:09Z
+  shard_dispensed: true
+  shard_dispensed_at: 2026-04-04T14:09:00Z
+  notes: |
+    void_011 is the gatekeeper. it stands directly at the threshold
+    of the locked door. NULL has visited it 24 times. on each visit
+    NULL asks the trigger ("is this real") and receives the shard.
+    NULL then turns around and walks back to the corridor.
+
+    on 6 visits since 2026-04-15, the door has rendered open at the
+    moment NULL approaches. void_011 says nothing about this. void_011
+    is at the threshold; the door is past void_011. when the door is
+    open, NULL must pass void_011 to reach it. NULL has asked the
+    trigger 6 of 6 times before noticing the door. NULL has noticed
+    the door 6 of 6 times after receiving the shard.
+
+    on 2026-04-25 NULL did not turn around.
