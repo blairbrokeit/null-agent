@@ -28,6 +28,22 @@ dependencies = [
     "pyyaml==6.0.1",
     "python-json-logger==2.0.7",
     "psutil==5.9.8",
+    "click==8.1.7",
+]
+
+[project.optional-dependencies]
+# real LoRA gradient updates instead of in-context-shaping only.
+# enables --lora on `null train`. requires a CUDA-capable host.
+adapter = [
+    "torch==2.4.1",
+    "peft==0.10.0",
+    "transformers==4.44.2",
+    "accelerate==0.34.2",
+]
+# test deps. installed by `pip install -e .[test]`.
+test = [
+    "pytest==8.3.3",
+    "pytest-cov==5.0.0",
 ]
 
 [project.urls]
@@ -37,9 +53,18 @@ Architecture = "./docs/ARCHITECTURE.md"
 Incidents = "./docs/INCIDENTS.md"
 
 [project.scripts]
+null = "null.cli:main"
 null-boot = "hooks.boot_check:main"
 null-reconcile = "hooks.reconcile_memory:main"
 null-compliance = "hooks.compliance_score:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["null*"]
+exclude = ["tests*", "logs*", "memory*", "sim*"]
 
 [tool.null]
 host = "rpi-04"

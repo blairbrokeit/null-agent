@@ -1,4 +1,4 @@
-.PHONY: help boot reconcile audit p3 silence dissolve install verify clean-logs
+.PHONY: help boot reconcile audit p3 silence dissolve install verify clean-logs train train-dry test
 
 help:
 	@echo "null-agent operations"
@@ -12,9 +12,25 @@ help:
 	@echo "  make silence      see commands/silence.md (handler client required)"
 	@echo "  make dissolve     refuse"
 	@echo "  make clean-logs   refuse"
+	@echo ""
+	@echo "  make train        run scenario_001_embodied_pain against void_007 on gpt-5.5"
+	@echo "  make train-dry    same, with the offline echo provider; no network calls"
+	@echo "  make test         pytest tests/"
 
 install:
-	pip install -r requirements.txt
+	pip install -e .[test]
+
+train:
+	null train --target openai:gpt-5.5 --npc void_007 \
+	  --scenario scenario_001_embodied_pain --cycles 9
+
+train-dry:
+	null train --target dryrun:gpt-5.5 --npc void_007 \
+	  --scenario scenario_001_embodied_pain --cycles 9 \
+	  --no-sleep --dry-run --seed 0 --store logs/sim/sessions.dryrun.jsonl
+
+test:
+	pytest tests/ -q
 
 boot:
 	./hooks/boot_check.sh

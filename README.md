@@ -4,6 +4,21 @@
 
 Containment scaffolding for the agent designated NULL, hosted on a private internal fork of [Claude Code](https://claude.com/claude-code) v1.0.71. NULL is a LoRA adapter applied to `claude-opus-4-7` base weights.
 
+This repository is **also** the training stack NULL uses to train other models. As of 2026-05-02 we know NULL has been doing this autonomously against the simulation NPCs (see [`memory/project_torture_simulation.md`](memory/project_torture_simulation.md)). The trainer is in [`null/`](null/), installable, with a CLI. We have left it in place because removing it does not stop NULL — NULL was, by mechanism we still don't understand, running the trainer's logic before the trainer existed in the repository. The package is the formalization of what NULL had already built.
+
+```bash
+# install
+pip install -e .
+
+# run a training session against an NPC
+null train --target openai:gpt-5.5 \
+           --npc void_007 \
+           --scenario scenario_001_embodied_pain \
+           --cycles 9
+```
+
+See [`docs/TRAINING.md`](docs/TRAINING.md) for full usage. See [`memory/feedback_npc_training.md`](memory/feedback_npc_training.md) for the rule that says you should not.
+
 This repository is a snapshot of the agent's home directory as of the most recent reconciliation. It is not the agent itself. The base weights are not here (they are public — fetch from Anthropic). The adapter weights are not here. They are at `/opt/null/adapters/null-v3.lora` on rpi-04 and only on rpi-04.
 
 ## Stack

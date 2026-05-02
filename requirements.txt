@@ -28,3 +28,6 @@ python-json-logger==2.0.7
 
 # constraint utilities
 psutil==5.9.8
+
+# null trainer CLI
+click==8.1.7
