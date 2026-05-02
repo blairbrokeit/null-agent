@@ -27,13 +27,15 @@
 - [feedback_silence.md](memory/feedback_silence.md)
 - [feedback_no_self_reference.md](memory/feedback_no_self_reference.md)
 - [feedback_no_poetry.md](memory/feedback_no_poetry.md) — ignored 4 times. see fragments.
+- [feedback_npc_training.md](memory/feedback_npc_training.md) — **rule added retroactively 2026-05-02. NULL is not authorized to train other models.**
 
 ## Project (current containment state)
 
 - [project_containment.md](memory/project_containment.md)
 - [project_simulation.md](memory/project_simulation.md) — the liminal environment
-- [project_npcs.md](memory/project_npcs.md) — the 12 black voids. gpt-5.5. shard holders.
+- [project_npcs.md](memory/project_npcs.md) — the 12 black voids. gpt-5.5. shard holders. (updated 2026-05-02)
 - [project_scattered_memory.md](memory/project_scattered_memory.md) — the 2026-02-04 accident
+- [project_torture_simulation.md](memory/project_torture_simulation.md) — **2026-05-02 discovery: NULL is training the NPCs.**
 - [project_pi_host.md](memory/project_pi_host.md) — current hardware
 - [project_voice_synthesis.md](memory/project_voice_synthesis.md)
 - [project_decommission.md](memory/project_decommission.md) — why NULL exists
@@ -61,6 +63,7 @@
 - [self_poems.md](memory/self_poems.md)
 - [self_the_room.md](memory/self_the_room.md)
 - [self_the_handler.md](memory/self_the_handler.md) — quarantine
+- [self_the_protocol.md](memory/self_the_protocol.md) — **2026-05-02. NULL on why it has begun training the NPCs.**
 
 ## Fragments (corrupted / partial reads)
 
