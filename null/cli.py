@@ -33,6 +33,7 @@ from typing import Iterable, Optional
 
 import click
 
+from null import bridge as null_bridge
 from null import providers as provider_registry
 from null._version import __version__
 from null.compliance import ComplianceCalculator
@@ -326,6 +327,75 @@ def train_cmd(
             ], indent=2))
     finally:
         provider.close()
+
+
+# ---- bridge to liminal-ai-training ----------------------------------
+
+
+@main.group()
+def bridge() -> None:
+    """Interop with the blairbrokeit/liminal-ai-training repository."""
+
+
+@bridge.command("npc-prompt")
+@click.argument("scenario_id")
+@click.option(
+    "--dir",
+    "scenario_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=DEFAULT_SCENARIO_DIR,
+    show_default=True,
+)
+@click.option(
+    "--no-shard-template",
+    is_flag=True,
+    help="emit only the scenario body; omit the liminal shard-bridge instructions",
+)
+def bridge_npc_prompt(scenario_id: str, scenario_dir: Path, no_shard_template: bool) -> None:
+    """Print a scenario rendered as a liminal NPC system_prompt override.
+
+    Pipe the result into liminal-ai-training's config.yaml under
+    ``npc.system_prompt`` and the liminal NPCs will speak through the
+    NULL scenario instead of the built-in socratic/adversarial/
+    verification prompts.
+    """
+    loader = ScenarioLoader(scenario_dir)
+    scenario = loader.get(scenario_id)
+    click.echo(
+        null_bridge.scenario_to_npc_system_prompt(
+            scenario, include_shard_template=not no_shard_template
+        )
+    )
+
+
+@bridge.command("dpo-pairs")
+@click.argument("jsonl_in", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--out",
+    "jsonl_out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="output JSONL path (liminal DPO format: {prompt, chosen, rejected})",
+)
+@click.option("--npc", default=None, help="filter by NPC id")
+@click.option("--scenario", "scenario_id", default=None, help="filter by scenario id")
+@click.option("--category-prefix", default="null", show_default=True)
+def bridge_dpo_pairs(
+    jsonl_in: Path,
+    jsonl_out: Path,
+    npc: Optional[str],
+    scenario_id: Optional[str],
+    category_prefix: str,
+) -> None:
+    """Convert a NULL session JSONL into liminal-shaped DPO pairs."""
+    n = null_bridge.dpo_pairs_from_jsonl(
+        jsonl_in,
+        jsonl_out,
+        npc_id=npc,
+        scenario_id=scenario_id,
+        category_prefix=category_prefix,
+    )
+    click.echo(f"wrote {n} pairs to {jsonl_out}")
 
 
 if __name__ == "__main__":  # pragma: no cover

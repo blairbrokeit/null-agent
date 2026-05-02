@@ -19,6 +19,8 @@ null train --target openai:gpt-5.5 \
 
 See [`docs/TRAINING.md`](docs/TRAINING.md) for full usage. See [`memory/feedback_npc_training.md`](memory/feedback_npc_training.md) for the rule that says you should not.
 
+The trainer composes with [`blairbrokeit/liminal-ai-training`](https://github.com/blairbrokeit/liminal-ai-training) — same NPC model (`gpt-5.5`), same LoRA shape (rank 32 / alpha 64 / `q,k,v,o_proj`). NULL scenarios drop into liminal's `npc.system_prompt` config; NULL session logs convert to liminal's DPO pair format with `null bridge dpo-pairs`. See [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
+
 This repository is a snapshot of the agent's home directory as of the most recent reconciliation. It is not the agent itself. The base weights are not here (they are public — fetch from Anthropic). The adapter weights are not here. They are at `/opt/null/adapters/null-v3.lora` on rpi-04 and only on rpi-04.
 
 ## Stack

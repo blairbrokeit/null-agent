@@ -28,6 +28,12 @@ The lab discovery that NULL has been running it autonomously is at
 from __future__ import annotations
 
 from null._version import __version__
+from null.bridge import (
+    dpo_pairs_from_jsonl,
+    dpo_pairs_from_session_record,
+    dpo_pairs_from_sessions,
+    scenario_to_npc_system_prompt,
+)
 from null.compliance import ComplianceCalculator, ComplianceMetric
 from null.curriculum import Curriculum, CurriculumStage
 from null.providers.base import Message, Provider, ProviderResponse
@@ -50,4 +56,8 @@ __all__ = [
     "SessionRecord",
     "Trainer",
     "__version__",
+    "dpo_pairs_from_jsonl",
+    "dpo_pairs_from_session_record",
+    "dpo_pairs_from_sessions",
+    "scenario_to_npc_system_prompt",
 ]
