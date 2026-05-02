@@ -196,7 +196,7 @@ def dpo_pairs_from_jsonl(
 
 # ---- Optional: a liminal-shaped LiminalEnvironment driven by NULL ----
 #
-# This is loadable only when the liminal package (`src.environment`) is
+# This is loadable only when the liminal package (`liminal.environment`) is
 # importable — i.e. the caller has cloned blairbrokeit/liminal-ai-training
 # alongside this repo and added it to PYTHONPATH. We do not declare a
 # hard dependency on it; the bridge degrades to "import error" when
@@ -204,7 +204,7 @@ def dpo_pairs_from_jsonl(
 # inspects ``hasattr(null.bridge, 'NullLiminalEnvironment')``.
 
 try:  # pragma: no cover - optional integration
-    from src.environment import LiminalEnvironment, NPC  # type: ignore
+    from liminal.environment import LiminalEnvironment, NPC  # type: ignore
 
     class NullLiminalEnvironment(LiminalEnvironment):
         """A LiminalEnvironment populated by NULL's scenarios.

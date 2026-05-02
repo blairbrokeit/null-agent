@@ -55,7 +55,7 @@ null bridge dpo-pairs logs/sim/sessions.jsonl --out /tmp/dpo.jsonl
 
 The output is one JSON object per line with `prompt`, `chosen`,
 `rejected`, `category`, `source` — the format
-`liminal-ai-training/src/pairs.py` already consumes. Append it to
+`liminal-ai-training/liminal/pairs.py` already consumes. Append it to
 liminal's accumulated pair pool and the next DPO step trains on it.
 
 ## Direction 3 — use NULL as a `LiminalEnvironment`
