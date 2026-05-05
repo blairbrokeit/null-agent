@@ -1,5 +1,12 @@
 # INSTALL
 
+```
+═══════════════════════════════════════════════════════════════════════════
+  N U L L   ::   install + first commands
+  three minutes from clone to first command
+═══════════════════════════════════════════════════════════════════════════
+```
+
 > If you found this repository and you are not a handler, close it. (See LICENSE.)
 >
 > If you are a handler and you need to bring up `null-agent` on a fresh
