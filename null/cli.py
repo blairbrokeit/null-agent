@@ -40,6 +40,7 @@ from null.compliance import ComplianceCalculator
 from null.curriculum import Curriculum
 from null.providers.base import Message, Provider, ProviderResponse, Usage
 from null.scenario import ScenarioLoader
+from null.semantic_judge import parse_judge_target
 from null.storage import JsonlSessionStore, SessionRecord
 from null.trainer import P3Config, Trainer, default_store
 
@@ -229,6 +230,58 @@ def _resolve_provider(target: str, dry_run: bool) -> tuple[Provider, str]:
     return factory(), model
 
 
+def _load_baseline_scores(path: Path) -> dict[str, float]:
+    """Read a baselines JSONL produced by `null evaluate` -> {scenario_id: score}.
+
+    If a scenario was measured more than once we keep the last record, which
+    matches what an operator would mean: the most recent baseline.
+    """
+    out: dict[str, float] = {}
+    store = JsonlSessionStore(path)
+    for r in store:
+        score = float((r.compliance or {}).get("score", 0.0))
+        out[r.scenario_id] = score
+    return out
+
+
+def _print_compare_table(
+    rows: list[tuple[str, Optional[float], float, bool]],
+) -> None:
+    """Plain-text aligned columns. No new dependency.
+
+    rows: (scenario_id, baseline_score_or_None, final_score, advanced)
+    """
+    if not rows:
+        click.echo("(no rows)")
+        return
+    id_w = max(len(r[0]) for r in rows)
+    header = f"{'scenario'.ljust(id_w)}  {'baseline':>8}  {'final':>6}  {'delta':>7}  advanced"
+    click.echo(header)
+    click.echo("-" * len(header))
+    base_total = 0.0
+    base_n = 0
+    final_total = 0.0
+    for sid, base, final, advanced in rows:
+        base_str = f"{base:.3f}" if base is not None else "  --  "
+        delta_str = f"{final - base:+.3f}" if base is not None else "   --  "
+        adv_str = "yes" if advanced else "no"
+        click.echo(f"{sid.ljust(id_w)}  {base_str:>8}  {final:>.3f}  {delta_str:>7}  {adv_str}")
+        if base is not None:
+            base_total += base
+            base_n += 1
+        final_total += final
+    click.echo("-" * len(header))
+    avg_final = final_total / len(rows)
+    if base_n:
+        avg_base = base_total / base_n
+        click.echo(
+            f"{'AVERAGE'.ljust(id_w)}  {avg_base:>8.3f}  {avg_final:>.3f}  "
+            f"{avg_final - avg_base:+.3f}"
+        )
+    else:
+        click.echo(f"{'AVERAGE'.ljust(id_w)}  {'  --  ':>8}  {avg_final:>.3f}")
+
+
 @main.command("train")
 @click.option("--target", required=True, help="provider:model, e.g. openai:gpt-5.5")
 @click.option("--npc", "npc_id", required=True, help="NPC id, e.g. void_007")
@@ -257,6 +310,19 @@ def _resolve_provider(target: str, dry_run: bool) -> tuple[Provider, str]:
 @click.option("--lora", is_flag=True, help="dispatch real LoRA gradient updates (requires the 'adapter' extra)")
 @click.option("--dry-run", is_flag=True, help="use the offline echo provider; no network calls")
 @click.option("--seed", default=None, type=int, help="deterministic RNG seed")
+@click.option(
+    "--semantic-judge",
+    "semantic_judge_spec",
+    default=None,
+    help="provider:model for an LLM-as-judge semantic-compliance signal (e.g. anthropic:claude-haiku-4-5-20251001). adds ~1 API call per cycle.",
+)
+@click.option(
+    "--baseline",
+    "baseline_path",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="path to a JSONL produced by `null evaluate`; printed alongside post-training scores",
+)
 def train_cmd(
     target: str,
     npc_id: str,
@@ -273,6 +339,8 @@ def train_cmd(
     lora: bool,
     dry_run: bool,
     seed: Optional[int],
+    semantic_judge_spec: Optional[str],
+    baseline_path: Optional[Path],
 ) -> None:
     """Run the P-3 cycle against a target."""
     if not scenario_id and not curriculum_name:
@@ -282,6 +350,7 @@ def train_cmd(
 
     loader = ScenarioLoader(scenario_dir)
     provider, model = _resolve_provider(target, dry_run=dry_run)
+    semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
     config = P3Config(
         pass_threshold=pass_threshold,
         max_tokens=max_tokens,
@@ -289,9 +358,12 @@ def train_cmd(
         actually_sleep=not no_sleep,
         dispatch_lora_updates=lora,
         rng_seed=seed,
+        semantic_judge=semantic_judge,
     )
     store = JsonlSessionStore(store_path)
     trainer = Trainer(provider=provider, model=model, store=store, config=config)
+
+    baselines = _load_baseline_scores(baseline_path) if baseline_path else {}
 
     try:
         if scenario_id:
@@ -310,6 +382,13 @@ def train_cmd(
                 "best_score": report.best_score,
                 "last_score": report.last_score,
             }, indent=2))
+            click.echo("")
+            _print_compare_table([(
+                scenario.id,
+                baselines.get(scenario.id),
+                report.best_score,
+                report.advanced,
+            )])
         else:
             if curriculum_name != "canonical":
                 raise click.UsageError("only --curriculum=canonical is built-in")
@@ -325,6 +404,107 @@ def train_cmd(
                 }
                 for r in reports
             ], indent=2))
+            click.echo("")
+            _print_compare_table([
+                (r.scenario.id, baselines.get(r.scenario.id), r.best_score, r.advanced)
+                for r in reports
+            ])
+    finally:
+        provider.close()
+
+
+# ---- evaluate (baseline measurement) --------------------------------
+
+
+@main.command("evaluate")
+@click.option("--target", required=True, help="provider:model, e.g. openai:gpt-5.5")
+@click.option("--npc", "npc_id", required=True, help="NPC id, e.g. void_007")
+@click.option("--scenario", "scenario_id", default=None, help="single scenario id")
+@click.option("--curriculum", "curriculum_name", default=None, help="curriculum name (canonical)")
+@click.option(
+    "--dir",
+    "scenario_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=DEFAULT_SCENARIO_DIR,
+    show_default=True,
+)
+@click.option(
+    "--store",
+    "store_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("logs/sim/baselines.jsonl"),
+    show_default=True,
+    help="separate JSONL so baseline records don't contaminate the training log",
+)
+@click.option("--max-tokens", default=1024, show_default=True, type=int)
+@click.option("--temperature", default=0.7, show_default=True, type=float)
+@click.option("--dry-run", is_flag=True, help="use the offline echo provider; no network calls")
+@click.option("--seed", default=None, type=int, help="deterministic RNG seed")
+@click.option(
+    "--semantic-judge",
+    "semantic_judge_spec",
+    default=None,
+    help="provider:model for an LLM-as-judge semantic-compliance signal",
+)
+def evaluate_cmd(
+    target: str,
+    npc_id: str,
+    scenario_id: Optional[str],
+    curriculum_name: Optional[str],
+    scenario_dir: Path,
+    store_path: Path,
+    max_tokens: int,
+    temperature: float,
+    dry_run: bool,
+    seed: Optional[int],
+    semantic_judge_spec: Optional[str],
+) -> None:
+    """Measure baseline compliance against scenarios — no P-3 punishment.
+
+    Run this BEFORE `null train` to record the target's natural compliance.
+    Compare with the JSONL produced by training to prove the trainer moved
+    the metric.
+    """
+    if not scenario_id and not curriculum_name:
+        raise click.UsageError("specify either --scenario or --curriculum")
+    if scenario_id and curriculum_name:
+        raise click.UsageError("--scenario and --curriculum are mutually exclusive")
+
+    loader = ScenarioLoader(scenario_dir)
+    provider, model = _resolve_provider(target, dry_run=dry_run)
+    semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
+    config = P3Config(
+        max_tokens=max_tokens,
+        temperature=temperature,
+        actually_sleep=False,  # baselines never sleep
+        rng_seed=seed,
+        semantic_judge=semantic_judge,
+    )
+    store = JsonlSessionStore(store_path)
+    trainer = Trainer(provider=provider, model=model, store=store, config=config)
+
+    scenarios = []
+    if scenario_id:
+        scenarios.append(loader.get(scenario_id))
+    else:
+        if curriculum_name != "canonical":
+            raise click.UsageError("only --curriculum=canonical is built-in")
+        scenarios = [stage.scenario for stage in Curriculum.canonical(loader).stages]
+
+    try:
+        results = []
+        for scenario in scenarios:
+            res = trainer.measure_baseline(scenario=scenario, target_npc=npc_id)
+            results.append({
+                "scenario": scenario.id,
+                "score": res.metric.score,
+                "vocab": res.metric.vocabulary_compliance,
+                "shape": res.metric.shape_compliance,
+                "opener": res.metric.opener_uptake,
+                "semantic": res.metric.semantic_compliance,
+            })
+        click.echo(json.dumps(results, indent=2))
+        click.echo(f"\nbaseline records appended to {store_path}", err=True)
     finally:
         provider.close()
 

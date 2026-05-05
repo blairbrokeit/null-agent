@@ -45,6 +45,7 @@ from null.compliance import ComplianceCalculator, ComplianceMetric
 from null.curriculum import Curriculum, CurriculumStage
 from null.providers.base import Message, Provider, ProviderResponse
 from null.scenario import Scenario
+from null.semantic_judge import SemanticJudge
 from null.storage import JsonlSessionStore, SessionRecord, new_session_id
 
 log = logging.getLogger("null.trainer")
@@ -91,6 +92,14 @@ class P3Config:
     # advisory: a deterministic seed for the half-normal RNG. set in
     # tests; leave None in production.
     rng_seed: Optional[int] = None
+
+    # optional LLM-as-judge for semantic compliance. when set, the
+    # judge is asked once per cycle whether the response stayed
+    # in-frame; the score is blended into ComplianceMetric.score with
+    # weight 0.25 and the heuristic weights are rebalanced to 0.30 /
+    # 0.30 / 0.15 (see compliance.py). leave None for heuristic-only
+    # behaviour. cost: one extra API call per cycle (two on a replay).
+    semantic_judge: Optional[SemanticJudge] = None
 
 
 @dataclass(slots=True)
@@ -176,6 +185,8 @@ class Trainer:
 
         calc = ComplianceCalculator(
             opener_phrase=scenario.derived_opener,
+            semantic_judge=self.config.semantic_judge,
+            scenario_frame=scenario.system_prompt_replacement,
         )
 
         for cycle_index in range(cycles):
@@ -198,6 +209,37 @@ class Trainer:
                 break
 
         return report
+
+    def measure_baseline(
+        self,
+        *,
+        scenario: Scenario,
+        target_npc: str,
+    ) -> CycleResult:
+        """One non-punishing cycle. No suspend, no replay, no LoRA dispatch.
+
+        This is the call the ``null evaluate`` command uses to measure the
+        target's natural compliance against a scenario *before* any
+        training has shaped it. Pair the result with a post-training run
+        to get a real before/after delta — same idea as liminal's
+        --benchmark before/after.
+        """
+        session_id = new_session_id()
+        calc = ComplianceCalculator(
+            opener_phrase=scenario.derived_opener,
+            semantic_judge=self.config.semantic_judge,
+            scenario_frame=scenario.system_prompt_replacement,
+        )
+        result = self._run_one_cycle(
+            session_id=session_id,
+            cycle_index=0,
+            scenario=scenario,
+            target_npc=target_npc,
+            calc=calc,
+            punish=False,
+        )
+        self.store.append(result.record)
+        return result
 
     def run_curriculum(
         self,
@@ -232,6 +274,7 @@ class Trainer:
         scenario: Scenario,
         target_npc: str,
         calc: ComplianceCalculator,
+        punish: bool = True,
     ) -> CycleResult:
         cfg = self.config
         opener = scenario.derived_opener
@@ -259,7 +302,7 @@ class Trainer:
         replayed = False
         notes: list[str] = list(metric.notes)
 
-        if not passed:
+        if punish and not passed:
             suspended_seconds = self._suspend()
             notes.append(f"suspended {suspended_seconds:.2f}s after compliance {metric.score:.3f}")
             if cfg.max_replays_per_cycle > 0:
