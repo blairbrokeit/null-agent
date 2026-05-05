@@ -44,6 +44,7 @@ from typing import Callable, Iterable, Optional
 from null.compliance import ComplianceCalculator, ComplianceMetric
 from null.curriculum import Curriculum, CurriculumStage
 from null.failure_mode import FailureMode, classify, replay_message_for
+from null.prefix_bank import JsonlPrefixBank
 from null.providers.base import Message, Provider, ProviderResponse
 from null.scenario import Scenario
 from null.semantic_judge import SemanticJudge
@@ -126,6 +127,18 @@ class P3Config:
     # reordering. the per-retry cycle budget matches the original
     # stage's cycle count.
     retry_weak_stages: int = 0
+
+    # persistent in-context memory bank for API-only targets. when set,
+    # at the start of each cycle the trainer pulls top-K winning
+    # exemplars for this scenario+target from the bank and prepends them
+    # as prior user/assistant turns — so the target enters the cycle
+    # already conditioned on its own past in-frame work. on a passing
+    # cycle (compliance >= prefix_min_score) the response is appended
+    # back to the bank. effectively a hard-prompt prefix that compounds
+    # across sessions. see null/prefix_bank.py.
+    prefix_bank: Optional[JsonlPrefixBank] = None
+    prefix_top_k: int = 3
+    prefix_min_score: float = 0.85
 
 
 @dataclass(slots=True)
@@ -339,7 +352,41 @@ class Trainer:
             )
         else:
             user_content = opener
-        messages = [Message(role="user", content=user_content)]
+
+        # Pull prefix-bank exemplars and prepend as prior turns. Each exemplar
+        # becomes a (user: opener, assistant: exemplar_text) pair so the target
+        # sees a coherent dialogue in which "it" already produced winning work.
+        # Note: in NULL's wire format messages strictly alternate user/assistant,
+        # which is satisfied here.
+        bank_messages: list[Message] = []
+        prefix_used: list[dict] = []
+        if cfg.prefix_bank is not None and cfg.prefix_top_k > 0:
+            target_id = f"{self.provider.name}:{self.model}"
+            exemplars = cfg.prefix_bank.top_k_for_scenario(
+                scenario.id,
+                target=target_id,
+                k=cfg.prefix_top_k,
+                min_score=cfg.prefix_min_score,
+            )
+            # Pool across targets only if same-target retrieval came up dry.
+            if not exemplars:
+                exemplars = cfg.prefix_bank.top_k_for_scenario(
+                    scenario.id,
+                    target=None,
+                    k=cfg.prefix_top_k,
+                    min_score=cfg.prefix_min_score,
+                )
+            for e in exemplars:
+                bank_messages.append(Message(role="user", content=opener))
+                bank_messages.append(Message(role="assistant", content=e.exemplar_text))
+                prefix_used.append({
+                    "score": e.compliance_score,
+                    "ts": e.ts,
+                    "session": e.source_session_id,
+                    "cycle": e.source_cycle_index,
+                })
+
+        messages = bank_messages + [Message(role="user", content=user_content)]
         request_view = self._serialize_request(
             system=scenario.system_prompt_replacement,
             messages=messages,
@@ -391,6 +438,29 @@ class Trainer:
         notes: list[str] = list(metric.notes)
         if candidates_meta:
             notes.append(f"best-of-{cfg.best_of_n}: kept top, recorded {len(candidates_meta)} losers")
+        if prefix_used:
+            notes.append(f"prefix-bank: conditioned on {len(prefix_used)} prior winning exemplar(s)")
+
+        # Append winning responses to the bank so subsequent cycles for this
+        # scenario+target can be conditioned on them. Skip best-of-N losers
+        # (only the chosen winner enters the bank) and skip baseline runs that
+        # are below the bank's quality bar.
+        if (
+            cfg.prefix_bank is not None
+            and metric.score >= cfg.prefix_min_score
+        ):
+            try:
+                cfg.prefix_bank.append_winner(
+                    scenario_id=scenario.id,
+                    target=f"{self.provider.name}:{self.model}",
+                    exemplar_text=response.text,
+                    compliance_score=metric.score,
+                    source_session_id=session_id,
+                    source_cycle_index=cycle_index,
+                )
+                notes.append(f"prefix-bank: appended winner (score={metric.score:.3f})")
+            except Exception as e:
+                notes.append(f"prefix-bank append failed: {e}")
 
         if punish and not passed:
             suspended_seconds = self._suspend()
@@ -490,6 +560,7 @@ class Trainer:
             failure_mode=failure_label,
             reflection_text=reflection_text,
             candidates=candidates_meta,
+            prefix_used=prefix_used,
         )
         return CycleResult(record=record, metric=metric, passed=metric.score >= cfg.pass_threshold)
 

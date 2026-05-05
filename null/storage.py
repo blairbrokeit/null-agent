@@ -43,6 +43,7 @@ class SessionRecord:
     failure_mode: Optional[str] = None  # set by classify() after a failed cycle
     reflection_text: Optional[str] = None  # target's self-diagnosis (when --reflect)
     candidates: list[dict] = field(default_factory=list)  # best-of-N siblings (text + score)
+    prefix_used: list[dict] = field(default_factory=list)  # bank entries prepended (audit)
 
     def as_dict(self) -> dict:
         return asdict(self)

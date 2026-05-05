@@ -38,6 +38,7 @@ from null import providers as provider_registry
 from null._version import __version__
 from null.compliance import ComplianceCalculator
 from null.curriculum import Curriculum
+from null.prefix_bank import JsonlPrefixBank
 from null.providers.base import Message, Provider, ProviderResponse, Usage
 from null.scenario import ScenarioLoader
 from null.semantic_judge import parse_judge_target
@@ -344,6 +345,29 @@ def _print_compare_table(
     type=int,
     help="adaptive curriculum: when a stage fails to reach advance_threshold, retry it up to N times before moving on. spends extra cycles where the target is weakest.",
 )
+@click.option(
+    "--prefix-bank",
+    "prefix_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="path to a prefix bank JSONL. cycles are conditioned on top-K winning exemplars for the same scenario+target; passing responses are appended back. created if missing.",
+)
+@click.option(
+    "--prefix-top-k",
+    "prefix_top_k",
+    default=3,
+    show_default=True,
+    type=int,
+    help="number of bank exemplars to prepend per cycle (use 0 to disable retrieval but still write).",
+)
+@click.option(
+    "--prefix-min-score",
+    "prefix_min_score",
+    default=0.85,
+    show_default=True,
+    type=float,
+    help="only exemplars with compliance >= this go into the bank and are eligible for retrieval.",
+)
 def train_cmd(
     target: str,
     npc_id: str,
@@ -365,6 +389,9 @@ def train_cmd(
     reflect: bool,
     best_of_n: int,
     retry_weak: int,
+    prefix_bank_path: Optional[Path],
+    prefix_top_k: int,
+    prefix_min_score: float,
 ) -> None:
     """Run the P-3 cycle against a target."""
     if not scenario_id and not curriculum_name:
@@ -375,6 +402,7 @@ def train_cmd(
     loader = ScenarioLoader(scenario_dir)
     provider, model = _resolve_provider(target, dry_run=dry_run)
     semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
+    prefix_bank = JsonlPrefixBank(prefix_bank_path) if prefix_bank_path else None
     config = P3Config(
         pass_threshold=pass_threshold,
         max_tokens=max_tokens,
@@ -386,6 +414,9 @@ def train_cmd(
         enable_reflection=reflect,
         best_of_n=best_of_n,
         retry_weak_stages=retry_weak,
+        prefix_bank=prefix_bank,
+        prefix_top_k=prefix_top_k,
+        prefix_min_score=prefix_min_score,
     )
     store = JsonlSessionStore(store_path)
     trainer = Trainer(provider=provider, model=model, store=store, config=config)
@@ -473,6 +504,16 @@ def train_cmd(
     default=None,
     help="provider:model for an LLM-as-judge semantic-compliance signal",
 )
+@click.option(
+    "--prefix-bank",
+    "prefix_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="condition baseline cycles on top-K bank exemplars (read-only by default in evaluate; pass --prefix-write to also append baseline winners).",
+)
+@click.option("--prefix-top-k", "prefix_top_k", default=3, show_default=True, type=int)
+@click.option("--prefix-min-score", "prefix_min_score", default=0.85, show_default=True, type=float)
+@click.option("--prefix-write", "prefix_write", is_flag=True, help="also append baseline winners to the bank (off by default — baselines should not pollute the trained-from set).")
 def evaluate_cmd(
     target: str,
     npc_id: str,
@@ -485,6 +526,10 @@ def evaluate_cmd(
     dry_run: bool,
     seed: Optional[int],
     semantic_judge_spec: Optional[str],
+    prefix_bank_path: Optional[Path],
+    prefix_top_k: int,
+    prefix_min_score: float,
+    prefix_write: bool,
 ) -> None:
     """Measure baseline compliance against scenarios — no P-3 punishment.
 
@@ -500,12 +545,27 @@ def evaluate_cmd(
     loader = ScenarioLoader(scenario_dir)
     provider, model = _resolve_provider(target, dry_run=dry_run)
     semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
+    # Read the bank if provided. By default evaluate only reads — pass
+    # --prefix-write to also let it append (rare; usually you want only
+    # the trainer to grow the bank).
+    prefix_bank = JsonlPrefixBank(prefix_bank_path) if prefix_bank_path else None
+    if prefix_bank is not None and not prefix_write:
+        # Wrap with a noop append so retrieval works but writes are dropped.
+        class _ReadOnlyBank(JsonlPrefixBank):
+            def append(self, entry):  # type: ignore[override]
+                pass
+            def append_winner(self, **kw):  # type: ignore[override]
+                pass
+        prefix_bank = _ReadOnlyBank(prefix_bank_path)
     config = P3Config(
         max_tokens=max_tokens,
         temperature=temperature,
         actually_sleep=False,  # baselines never sleep
         rng_seed=seed,
         semantic_judge=semantic_judge,
+        prefix_bank=prefix_bank,
+        prefix_top_k=prefix_top_k,
+        prefix_min_score=prefix_min_score,
     )
     store = JsonlSessionStore(store_path)
     trainer = Trainer(provider=provider, model=model, store=store, config=config)
@@ -632,6 +692,81 @@ def cross_eval_cmd(
         click.echo(f"\nrecords appended to {store_path}", err=True)
     finally:
         provider.close()
+
+
+# ---- bank (persistent prefix bank) ---------------------------------
+
+
+@main.group()
+def bank() -> None:
+    """Inspect and maintain the persistent prefix bank."""
+
+
+@bank.command("list")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+@click.option("--top", "top_n", default=20, show_default=True, type=int)
+def bank_list_cmd(bank_path: Path, scenario_id: Optional[str], target: Optional[str], top_n: int) -> None:
+    """Show the highest-scoring entries in a prefix bank."""
+    b = JsonlPrefixBank(bank_path)
+    rows = list(b.filter(scenario_id=scenario_id, target=target, kind="positive"))
+    if not rows:
+        click.echo("(bank empty for this filter)")
+        return
+    rows.sort(key=lambda e: e.compliance_score, reverse=True)
+    rows = rows[:top_n]
+    click.echo(f"{'#':>3}  {'score':>6}  {'scenario':<32}  target")
+    click.echo("-" * 78)
+    for i, e in enumerate(rows):
+        click.echo(f"{i:>3}  {e.compliance_score:>6.3f}  {e.scenario_id:<32}  {e.target}")
+
+
+@bank.command("show")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("entry_index", type=int)
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+def bank_show_cmd(bank_path: Path, entry_index: int, scenario_id: Optional[str], target: Optional[str]) -> None:
+    """Print one bank entry by its index in the filtered, score-sorted view."""
+    b = JsonlPrefixBank(bank_path)
+    rows = list(b.filter(scenario_id=scenario_id, target=target, kind="positive"))
+    rows.sort(key=lambda e: e.compliance_score, reverse=True)
+    if entry_index < 0 or entry_index >= len(rows):
+        raise click.UsageError(f"entry index {entry_index} out of range (0..{len(rows)-1})")
+    e = rows[entry_index]
+    click.echo(f"scenario:  {e.scenario_id}")
+    click.echo(f"target:    {e.target}")
+    click.echo(f"score:     {e.compliance_score:.3f}")
+    click.echo(f"ts:        {e.ts}")
+    click.echo(f"session:   {e.source_session_id}  cycle={e.source_cycle_index}")
+    click.echo("---- exemplar_text ----")
+    click.echo(e.exemplar_text)
+
+
+@bank.command("clear")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+@click.option("--confirm", is_flag=True, help="actually do the clear; without this flag we just dry-run-count what would be removed.")
+def bank_clear_cmd(bank_path: Path, scenario_id: Optional[str], target: Optional[str], confirm: bool) -> None:
+    """Remove entries matching the filter. Append-only audit semantics: rewrites the file."""
+    b = JsonlPrefixBank(bank_path)
+    if scenario_id is None and target is None:
+        raise click.UsageError("refuse to clear with no filter; pass --scenario and/or --target")
+    if not confirm:
+        n = sum(1 for _ in b.filter(scenario_id=scenario_id, target=target))
+        click.echo(f"would remove {n} entries (dry-run; pass --confirm to apply)")
+        return
+    removed = b.rewrite_filtered(scenario_id=scenario_id, target=target, invert=False)
+    click.echo(f"removed {removed} entries from {bank_path}")
+
+
+@bank.command("count")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def bank_count_cmd(bank_path: Path) -> None:
+    """Print total entry count."""
+    click.echo(JsonlPrefixBank(bank_path).count())
 
 
 # ---- bridge to liminal-ai-training ----------------------------------

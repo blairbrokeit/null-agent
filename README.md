@@ -71,6 +71,40 @@ responses that grammatically clear the heuristic checks but drift semantically
 out of frame are still caught. Costs ~1 extra API call per cycle; turn it off
 for cheap dry runs.
 
+### Persistent training across sessions (`--prefix-bank`)
+
+Without a bank, every session is a fresh start — the trainer shapes the
+*current call* but nothing carries over. With a bank, every winning response
+is appended to a JSONL keyed by scenario+target, and the start of each new
+cycle prepends the top-K best-matching prior winners as in-context exemplars.
+The target enters the new call already conditioned on its own best in-frame
+work. Effectively a hard-prompt prefix that compounds across sessions —
+closer to a learned soft prompt than vanilla few-shot.
+
+```bash
+# Train with the bank — winners auto-append, future cycles prepend top-K.
+null train --target anthropic:claude-haiku-4-5-20251001 \
+           --npc void_007 \
+           --curriculum canonical \
+           --prefix-bank logs/sim/prefix_bank.jsonl
+
+# Inspect the bank
+null bank count logs/sim/prefix_bank.jsonl
+null bank list logs/sim/prefix_bank.jsonl --scenario scenario_001_embodied_pain
+null bank show logs/sim/prefix_bank.jsonl 0
+
+# Test the bank's effect on the same target without any P-3 punishment
+null evaluate --target anthropic:claude-haiku-4-5-20251001 \
+              --npc void_007 \
+              --curriculum canonical \
+              --prefix-bank logs/sim/prefix_bank.jsonl
+```
+
+The bank is the missing piece that makes API-only targets *durably trainable*
+across sessions. Append-only audit semantics: `null bank clear` rewrites the
+file rather than mutating in place, and refuses to operate without an explicit
+`--scenario` or `--target` filter.
+
 See [`docs/TRAINING.md`](docs/TRAINING.md) for full usage and protocol detail.
 See [`memory/feedback_npc_training.md`](memory/feedback_npc_training.md) for the
 rule that says you should not.
