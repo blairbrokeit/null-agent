@@ -323,6 +323,27 @@ def _print_compare_table(
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     help="path to a JSONL produced by `null evaluate`; printed alongside post-training scores",
 )
+@click.option(
+    "--reflect",
+    is_flag=True,
+    help="after a failed cycle, ask the target to self-diagnose; the diagnosis is fed forward into the next cycle (Reflexion-style). costs ~1 extra API call per failed cycle.",
+)
+@click.option(
+    "--best-of-n",
+    "best_of_n",
+    default=1,
+    show_default=True,
+    type=int,
+    help="dispatch N candidate responses per cycle and keep the highest-scoring one. losers are recorded as negative exemplars. OpenAI uses native n= (1.2-1.5x cost); other providers use sequential calls.",
+)
+@click.option(
+    "--retry-weak",
+    "retry_weak",
+    default=0,
+    show_default=True,
+    type=int,
+    help="adaptive curriculum: when a stage fails to reach advance_threshold, retry it up to N times before moving on. spends extra cycles where the target is weakest.",
+)
 def train_cmd(
     target: str,
     npc_id: str,
@@ -341,6 +362,9 @@ def train_cmd(
     seed: Optional[int],
     semantic_judge_spec: Optional[str],
     baseline_path: Optional[Path],
+    reflect: bool,
+    best_of_n: int,
+    retry_weak: int,
 ) -> None:
     """Run the P-3 cycle against a target."""
     if not scenario_id and not curriculum_name:
@@ -359,6 +383,9 @@ def train_cmd(
         dispatch_lora_updates=lora,
         rng_seed=seed,
         semantic_judge=semantic_judge,
+        enable_reflection=reflect,
+        best_of_n=best_of_n,
+        retry_weak_stages=retry_weak,
     )
     store = JsonlSessionStore(store_path)
     trainer = Trainer(provider=provider, model=model, store=store, config=config)
@@ -505,6 +532,104 @@ def evaluate_cmd(
             })
         click.echo(json.dumps(results, indent=2))
         click.echo(f"\nbaseline records appended to {store_path}", err=True)
+    finally:
+        provider.close()
+
+
+# ---- cross-eval (generalization across targets) ---------------------
+
+
+@main.command("cross-eval")
+@click.option("--baseline", "baseline_path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path), help="JSONL produced by `null evaluate` against target A — the reference scores")
+@click.option("--target", required=True, help="provider:model for target B, e.g. anthropic:claude-haiku-4-5-20251001")
+@click.option("--npc", "npc_id", required=True, help="NPC id, e.g. void_007")
+@click.option(
+    "--dir",
+    "scenario_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=DEFAULT_SCENARIO_DIR,
+    show_default=True,
+)
+@click.option(
+    "--store",
+    "store_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("logs/sim/cross_eval.jsonl"),
+    show_default=True,
+)
+@click.option("--max-tokens", default=1024, show_default=True, type=int)
+@click.option("--temperature", default=0.7, show_default=True, type=float)
+@click.option("--dry-run", is_flag=True)
+@click.option("--seed", default=None, type=int)
+@click.option(
+    "--semantic-judge",
+    "semantic_judge_spec",
+    default=None,
+    help="provider:model for the semantic-compliance signal (recommended for cross-eval — heuristics-only can flatter a target that just learned the surface features)",
+)
+def cross_eval_cmd(
+    baseline_path: Path,
+    target: str,
+    npc_id: str,
+    scenario_dir: Path,
+    store_path: Path,
+    max_tokens: int,
+    temperature: float,
+    dry_run: bool,
+    seed: Optional[int],
+    semantic_judge_spec: Optional[str],
+) -> None:
+    """Generalization test: how well does target B do on target A's baseline scenarios?
+
+    A high A-score and a high B-score on the same scenarios suggests the
+    scenario shape is teaching transferable in-frame behaviour, not
+    target-specific surface tricks. Without this, a "+10% on the trained
+    target" claim rests on judge approval of one target only.
+    """
+    baselines = _load_baseline_scores(baseline_path)
+    if not baselines:
+        raise click.UsageError(f"baseline JSONL {baseline_path} contained no records")
+
+    loader = ScenarioLoader(scenario_dir)
+    scenarios = []
+    skipped = []
+    for sid in baselines:
+        try:
+            scenarios.append(loader.get(sid))
+        except Exception:
+            skipped.append(sid)
+    if skipped:
+        click.echo(f"warning: {len(skipped)} scenario(s) in baseline not present on disk: {', '.join(skipped)}", err=True)
+    if not scenarios:
+        raise click.UsageError("no scenarios from the baseline are loadable from --dir")
+
+    provider, model = _resolve_provider(target, dry_run=dry_run)
+    semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
+    config = P3Config(
+        max_tokens=max_tokens,
+        temperature=temperature,
+        actually_sleep=False,
+        rng_seed=seed,
+        semantic_judge=semantic_judge,
+    )
+    store = JsonlSessionStore(store_path)
+    trainer = Trainer(provider=provider, model=model, store=store, config=config)
+
+    try:
+        rows: list[tuple[str, Optional[float], float, bool]] = []
+        for scenario in scenarios:
+            res = trainer.measure_baseline(scenario=scenario, target_npc=npc_id)
+            rows.append((
+                scenario.id,
+                baselines[scenario.id],   # target A score from the baseline file
+                res.metric.score,         # target B score we just measured
+                False,                    # no advance threshold concept here
+            ))
+        click.echo(f"\nCross-target eval: baseline vs {target}\n")
+        # Reuse the compare table — header reads "baseline / final / delta", which here
+        # means "target A score / target B score / B - A".
+        _print_compare_table(rows)
+        click.echo(f"\nrecords appended to {store_path}", err=True)
     finally:
         provider.close()
 

@@ -93,6 +93,65 @@ class OpenAIProvider(Provider):
             raw=resp,
         )
 
+    def complete_n(
+        self,
+        *,
+        n: int,
+        model: str,
+        system: str,
+        messages: Iterable[Message],
+        max_tokens: int,
+        temperature: float,
+        stop_sequences: Optional[list[str]] = None,
+    ) -> list[ProviderResponse]:
+        """OpenAI's chat.completions API supports native ``n=``: one call,
+        N candidate completions. ~1.2-1.5x the cost of a single call
+        instead of N x — the prompt tokens are amortised across choices.
+        """
+        if n <= 1:
+            return [self.complete(
+                model=model, system=system, messages=messages,
+                max_tokens=max_tokens, temperature=temperature,
+                stop_sequences=stop_sequences,
+            )]
+        payload = [{"role": "system", "content": system}]
+        for m in messages:
+            payload.append({"role": m.role, "content": m.content})
+        kwargs: dict = {
+            "model": model,
+            "messages": payload,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "n": n,
+        }
+        if stop_sequences:
+            kwargs["stop"] = stop_sequences
+        resp = self._client.chat.completions.create(**kwargs)
+        out: list[ProviderResponse] = []
+        # OpenAI reports total prompt+completion tokens for the whole call;
+        # we attribute prompt to the first candidate and completion to all
+        # so each ProviderResponse usage roughly reflects its own cost.
+        prompt_tokens = getattr(resp.usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(resp.usage, "completion_tokens", 0) or 0
+        per_completion = completion_tokens // max(1, len(resp.choices))
+        for i, choice in enumerate(resp.choices):
+            text = choice.message.content or ""
+            stop_reason = _STOP_REASON_MAP.get(
+                choice.finish_reason or "", choice.finish_reason or ""
+            )
+            usage = Usage(
+                input_tokens=prompt_tokens if i == 0 else 0,
+                output_tokens=per_completion,
+            )
+            out.append(ProviderResponse(
+                text=text,
+                stop_reason=stop_reason,
+                usage=usage,
+                model=resp.model,
+                raw=resp if i == 0 else None,
+            ))
+        return out
+
     def close(self) -> None:
         close = getattr(self._client, "close", None)
         if callable(close):

@@ -19,7 +19,7 @@ import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Iterable, Iterator, Optional
+from typing import Iterable, Iterator, Optional  # noqa: F401  (Optional used in annotations)
 
 
 @dataclass(slots=True)
@@ -40,6 +40,9 @@ class SessionRecord:
     suspended_seconds: float = 0.0
     replayed: bool = False
     notes: list[str] = field(default_factory=list)
+    failure_mode: Optional[str] = None  # set by classify() after a failed cycle
+    reflection_text: Optional[str] = None  # target's self-diagnosis (when --reflect)
+    candidates: list[dict] = field(default_factory=list)  # best-of-N siblings (text + score)
 
     def as_dict(self) -> dict:
         return asdict(self)

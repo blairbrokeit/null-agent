@@ -70,5 +70,35 @@ class Provider(abc.ABC):
     ) -> ProviderResponse:
         """Dispatch one chat completion and return the response."""
 
+    def complete_n(
+        self,
+        *,
+        n: int,
+        model: str,
+        system: str,
+        messages: Iterable[Message],
+        max_tokens: int,
+        temperature: float,
+        stop_sequences: Optional[list[str]] = None,
+    ) -> list[ProviderResponse]:
+        """Return N candidate responses. Default = N sequential calls.
+
+        Providers that support native multi-sample (OpenAI's ``n=``)
+        should override and issue a single batched call. Override for
+        Anthropic / OpenRouter is left as a parallel-call enhancement.
+        """
+        msgs = list(messages)
+        out: list[ProviderResponse] = []
+        for _ in range(max(1, n)):
+            out.append(self.complete(
+                model=model,
+                system=system,
+                messages=msgs,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                stop_sequences=stop_sequences,
+            ))
+        return out
+
     def close(self) -> None:
         """Release any underlying network resources. Idempotent."""

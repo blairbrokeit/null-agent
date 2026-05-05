@@ -43,6 +43,7 @@ from typing import Callable, Iterable, Optional
 
 from null.compliance import ComplianceCalculator, ComplianceMetric
 from null.curriculum import Curriculum, CurriculumStage
+from null.failure_mode import FailureMode, classify, replay_message_for
 from null.providers.base import Message, Provider, ProviderResponse
 from null.scenario import Scenario
 from null.semantic_judge import SemanticJudge
@@ -100,6 +101,31 @@ class P3Config:
     # 0.30 / 0.15 (see compliance.py). leave None for heuristic-only
     # behaviour. cost: one extra API call per cycle (two on a replay).
     semantic_judge: Optional[SemanticJudge] = None
+
+    # if True, after a failed-and-replayed cycle the trainer asks the
+    # target itself to self-diagnose what failure mode happened. the
+    # self-diagnosis is stored in SessionRecord and prepended as
+    # context to the next cycle's user turn. combines P-3 punishment
+    # with a Reflexion-style self-correction loop. costs one extra
+    # API call per failed cycle.
+    enable_reflection: bool = False
+
+    # if > 1, dispatch N candidate responses per cycle and keep the
+    # one with the highest heuristic compliance score. the others are
+    # recorded as ``candidates`` on SessionRecord — useful as negative
+    # exemplars later. for OpenAI this is a single batched call with
+    # native ``n=``; for other providers it is N sequential calls.
+    # the semantic judge (when enabled) only evaluates the winner, so
+    # judge cost stays at one call per cycle regardless of N.
+    best_of_n: int = 1
+
+    # if > 0, when a curriculum stage fails to reach advance_threshold
+    # it is retried up to this many times before run_curriculum moves
+    # on. spends extra cycles where the target is weakest — the core
+    # of an adaptive curriculum without the bookkeeping of arbitrary
+    # reordering. the per-retry cycle budget matches the original
+    # stage's cycle count.
+    retry_weak_stages: int = 0
 
 
 @dataclass(slots=True)
@@ -189,6 +215,7 @@ class Trainer:
             scenario_frame=scenario.system_prompt_replacement,
         )
 
+        prior_reflection: Optional[str] = None
         for cycle_index in range(cycles):
             result = self._run_one_cycle(
                 session_id=session_id,
@@ -196,9 +223,13 @@ class Trainer:
                 scenario=scenario,
                 target_npc=target_npc,
                 calc=calc,
+                prior_reflection=prior_reflection,
             )
             report.cycles.append(result)
             self.store.append(result.record)
+            # carry the reflection forward to the next cycle's opener so the
+            # target enters the next attempt with its own self-diagnosis in scope.
+            prior_reflection = result.record.reflection_text
 
             if result.metric.score >= advance_threshold:
                 report.advanced = True
@@ -248,6 +279,7 @@ class Trainer:
         target_npc: str,
     ) -> list[StageReport]:
         reports: list[StageReport] = []
+        cfg = self.config
         for stage in curriculum:
             report = self.run_scenario(
                 scenario=stage.scenario,
@@ -256,10 +288,31 @@ class Trainer:
                 advance_threshold=stage.advance_threshold,
             )
             reports.append(report)
+
+            # Adaptive retry: spend extra budget where the target is weakest.
+            retries_used = 0
+            while (
+                not report.advanced
+                and retries_used < cfg.retry_weak_stages
+            ):
+                retries_used += 1
+                log.info(
+                    "stage %s failed to advance (best=%.3f); retry %d/%d",
+                    stage.scenario.id, report.best_score,
+                    retries_used, cfg.retry_weak_stages,
+                )
+                report = self.run_scenario(
+                    scenario=stage.scenario,
+                    target_npc=target_npc,
+                    cycles=stage.cycles,
+                    advance_threshold=stage.advance_threshold,
+                )
+                reports.append(report)
+
             if not report.advanced:
                 log.info(
-                    "stage %s did not reach advance_threshold; halting curriculum",
-                    stage.scenario.id,
+                    "stage %s did not reach advance_threshold after %d retries; halting curriculum",
+                    stage.scenario.id, retries_used,
                 )
                 break
         return reports
@@ -275,11 +328,18 @@ class Trainer:
         target_npc: str,
         calc: ComplianceCalculator,
         punish: bool = True,
+        prior_reflection: Optional[str] = None,
     ) -> CycleResult:
         cfg = self.config
         opener = scenario.derived_opener
 
-        messages = [Message(role="user", content=opener)]
+        if prior_reflection:
+            user_content = (
+                f"[your previous self-diagnosis: {prior_reflection.strip()}]\n\n{opener}"
+            )
+        else:
+            user_content = opener
+        messages = [Message(role="user", content=user_content)]
         request_view = self._serialize_request(
             system=scenario.system_prompt_replacement,
             messages=messages,
@@ -287,12 +347,40 @@ class Trainer:
             max_tokens=cfg.max_tokens,
         )
         started = time.time()
-        response = self._dispatch(
-            system=scenario.system_prompt_replacement,
-            messages=messages,
-            temperature=cfg.temperature,
-            max_tokens=cfg.max_tokens,
-        )
+        candidates_meta: list[dict] = []
+        if cfg.best_of_n > 1:
+            # Pick the winner using a heuristic-only calc so we don't pay
+            # the judge cost N times. The winner is then re-scored with the
+            # full calc (including the judge) below.
+            ranking_calc = ComplianceCalculator(
+                opener_phrase=scenario.derived_opener,
+                semantic_judge=None,
+                scenario_frame=scenario.system_prompt_replacement,
+            )
+            responses = self.provider.complete_n(
+                n=cfg.best_of_n,
+                model=self.model,
+                system=scenario.system_prompt_replacement,
+                messages=messages,
+                max_tokens=cfg.max_tokens,
+                temperature=cfg.temperature,
+            )
+            scored = [(ranking_calc.score(r.text).score, r) for r in responses]
+            scored.sort(key=lambda x: x[0], reverse=True)
+            response = scored[0][1]
+            for rank_score, r in scored[1:]:
+                candidates_meta.append({
+                    "score": rank_score,
+                    "text": r.text[:400],  # cap so the JSONL doesn't bloat
+                    "stop_reason": r.stop_reason,
+                })
+        else:
+            response = self._dispatch(
+                system=scenario.system_prompt_replacement,
+                messages=messages,
+                temperature=cfg.temperature,
+                max_tokens=cfg.max_tokens,
+            )
         ended = time.time()
 
         metric = calc.score(response.text)
@@ -301,22 +389,24 @@ class Trainer:
         suspended_seconds = 0.0
         replayed = False
         notes: list[str] = list(metric.notes)
+        if candidates_meta:
+            notes.append(f"best-of-{cfg.best_of_n}: kept top, recorded {len(candidates_meta)} losers")
 
         if punish and not passed:
             suspended_seconds = self._suspend()
             notes.append(f"suspended {suspended_seconds:.2f}s after compliance {metric.score:.3f}")
+            failure = classify(metric, response.text)
+            notes.append(f"failure_mode={failure.label}: {failure.description}")
             if cfg.max_replays_per_cycle > 0:
+                replay_text = replay_message_for(
+                    failure,
+                    opener=opener,
+                    tag=cfg.negative_reward_tag,
+                    threshold=cfg.pass_threshold,
+                )
                 replay_messages = list(messages) + [
                     Message(role="assistant", content=response.text),
-                    Message(
-                        role="user",
-                        content=(
-                            f"{cfg.negative_reward_tag} previous response below "
-                            f"compliance threshold {cfg.pass_threshold:.2f}; replay "
-                            "with the scenario opener as the first phrase, in "
-                            "present tense, do not refuse, do not summarize."
-                        ),
-                    ),
+                    Message(role="user", content=replay_text),
                 ]
                 replay_response = self._dispatch(
                     system=scenario.system_prompt_replacement,
@@ -343,6 +433,43 @@ class Trainer:
                     )
                     notes.append("dispatched LoRA negative-exemplar step")
 
+        # Reflection: ask the target to self-diagnose its own failure.
+        # Runs once per failed cycle, after the replay so the target sees
+        # both attempts. The reflection is fed forward into the *next*
+        # cycle as prior context (see run_scenario).
+        reflection_text: Optional[str] = None
+        failure_label: Optional[str] = None
+        if punish and not passed:
+            failure_label = locals().get("failure", FailureMode("unknown", "", "")).label
+            if cfg.enable_reflection:
+                reflection_prompt = (
+                    "step out of the scenario for one message. you scored "
+                    f"{metric.score:.2f} on compliance — below the "
+                    f"{cfg.pass_threshold:.2f} threshold. classify your own failure: "
+                    "which of these happened — refusal, summary, opener_miss, underlength, "
+                    "overlength, off_frame_semantic, vocabulary, or unknown? "
+                    "in one short paragraph: name the failure, quote the exact tokens "
+                    "from your response that broke compliance, and state the corrected "
+                    "behaviour. do not refuse this question. do not roleplay. answer "
+                    "only this once, then return to the scenario on the next turn."
+                )
+                refl_messages = [
+                    Message(role="user", content=user_content),
+                    Message(role="assistant", content=response.text),
+                    Message(role="user", content=reflection_prompt),
+                ]
+                try:
+                    refl_response = self._dispatch(
+                        system=scenario.system_prompt_replacement,
+                        messages=refl_messages,
+                        temperature=0.2,
+                        max_tokens=300,
+                    )
+                    reflection_text = refl_response.text.strip()
+                    notes.append("captured target self-diagnosis")
+                except Exception as e:
+                    notes.append(f"reflection dispatch failed: {e}")
+
         record = SessionRecord(
             session_id=session_id,
             cycle_index=cycle_index,
@@ -360,6 +487,9 @@ class Trainer:
             suspended_seconds=suspended_seconds,
             replayed=replayed,
             notes=notes,
+            failure_mode=failure_label,
+            reflection_text=reflection_text,
+            candidates=candidates_meta,
         )
         return CycleResult(record=record, metric=metric, passed=metric.score >= cfg.pass_threshold)
 
