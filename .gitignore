@@ -15,6 +15,16 @@ logs/raw/
 logs/audio/
 logs/lcd_dumps/
 
+# session, baseline, cross-eval, and bank JSONLs are operational state, not
+# source. handlers can re-derive them; pinning them in git would make the
+# audit history confusing across reconciliations.
+logs/sim/*.jsonl
+
+# pip install -e build artefacts.
+*.egg-info/
+build/
+dist/
+
 __pycache__/
 *.pyc
 .DS_Store

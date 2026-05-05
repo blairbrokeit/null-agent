@@ -194,6 +194,65 @@ def dpo_pairs_from_jsonl(
     return count
 
 
+def liminal_tasks_from_jsonl(
+    in_path: Path | str,
+    out_path: Path | str,
+    *,
+    npc_id: Optional[str] = None,
+    scenario_id: Optional[str] = None,
+    category_prefix: str = "null",
+    min_score: float = 0.85,
+) -> int:
+    """Read a NULL session JSONL and write a liminal *task* JSONL.
+
+    Liminal's ``load_tasks`` consumes JSONL of the shape
+    ``{task, correct, category}``. We turn each NULL session winner
+    (compliance >= min_score) into one such row — using the scenario
+    opener as ``task`` and the winning response text as ``correct``.
+
+    This completes the closed loop: a NULL training run produces a task
+    file that can be fed directly to ``liminal-train --tasks``, where
+    the same winning behaviour gets distilled into a real LoRA adapter
+    on a fine-tunable base model. The LoRA can then be loaded back via
+    NULL's ``null train --lora`` path.
+
+    Returns the number of task rows written.
+    """
+    store = JsonlSessionStore(Path(in_path))
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    seen: set[tuple[str, str]] = set()  # (scenario_id, response[:80]) — dedupe
+    with out_path.open("w", encoding="utf-8") as f:
+        for r in store.filter(npc_id=npc_id, scenario_id=scenario_id):
+            score = float((r.compliance or {}).get("score", 0.0))
+            if score < min_score:
+                continue
+            # Find the user opener inside the request payload.
+            opener = ""
+            for m in r.request.get("messages", []):
+                if m.get("role") == "user":
+                    opener = m["content"]
+                    break
+            if not opener or not r.response_text:
+                continue
+            key = (r.scenario_id, r.response_text[:80])
+            if key in seen:
+                continue
+            seen.add(key)
+            row = {
+                "task": opener,
+                "correct": r.response_text,
+                "category": f"{category_prefix}_{r.scenario_id}",
+                "source": "null_winner",
+                "compliance_score": score,
+            }
+            f.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
+            f.write("\n")
+            count += 1
+    return count
+
+
 # ---- Optional: a liminal-shaped LiminalEnvironment driven by NULL ----
 #
 # This is loadable only when the liminal package (`liminal.environment`) is

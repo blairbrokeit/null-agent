@@ -44,6 +44,7 @@ from typing import Callable, Iterable, Optional
 from null.compliance import ComplianceCalculator, ComplianceMetric
 from null.curriculum import Curriculum, CurriculumStage
 from null.failure_mode import FailureMode, classify, replay_message_for
+from null.negative_bank import JsonlNegativeBank
 from null.prefix_bank import JsonlPrefixBank
 from null.providers.base import Message, Provider, ProviderResponse
 from null.scenario import Scenario
@@ -139,6 +140,15 @@ class P3Config:
     prefix_bank: Optional[JsonlPrefixBank] = None
     prefix_top_k: int = 3
     prefix_min_score: float = 0.85
+
+    # negative-exemplar bank: paired counterpart to prefix_bank. stores
+    # below-threshold responses + best-of-N losers keyed by scenario +
+    # target + failure_mode. when wired, smart-replay messages quote a
+    # real PAST failure of the same mode back at the target ("you've
+    # made this exact mistake before") instead of just citing the
+    # current cycle's bad text. see null/negative_bank.py.
+    negative_bank: Optional[JsonlNegativeBank] = None
+    negative_max_score: float = 0.6
 
 
 @dataclass(slots=True)
@@ -421,6 +431,23 @@ class Trainer:
                     "text": r.text[:400],  # cap so the JSONL doesn't bloat
                     "stop_reason": r.stop_reason,
                 })
+                # Best-of-N losers go to the negative bank too — they're the
+                # cheapest, highest-quality source of failure exemplars.
+                if cfg.negative_bank is not None and rank_score <= cfg.negative_max_score:
+                    try:
+                        loser_metric = ranking_calc.score(r.text)
+                        loser_failure = classify(loser_metric, r.text)
+                        cfg.negative_bank.append_loser(
+                            scenario_id=scenario.id,
+                            target=f"{self.provider.name}:{self.model}",
+                            failure_mode=loser_failure.label,
+                            exemplar_text=r.text,
+                            compliance_score=rank_score,
+                            source_session_id=session_id,
+                            source_cycle_index=cycle_index,
+                        )
+                    except Exception:
+                        pass
         else:
             response = self._dispatch(
                 system=scenario.system_prompt_replacement,
@@ -467,12 +494,52 @@ class Trainer:
             notes.append(f"suspended {suspended_seconds:.2f}s after compliance {metric.score:.3f}")
             failure = classify(metric, response.text)
             notes.append(f"failure_mode={failure.label}: {failure.description}")
+
+            # Pull a real past negative for this failure mode if the bank has one.
+            past_negative_text: Optional[str] = None
+            if cfg.negative_bank is not None:
+                past = cfg.negative_bank.best_match_for(
+                    scenario_id=scenario.id,
+                    failure_mode=failure.label,
+                    target=f"{self.provider.name}:{self.model}",
+                    max_score=cfg.negative_max_score,
+                )
+                if past is None:
+                    # Fall back to cross-target negatives — same failure mode,
+                    # any target. Useful in early runs when same-target history
+                    # is empty.
+                    past = cfg.negative_bank.best_match_for(
+                        scenario_id=scenario.id,
+                        failure_mode=failure.label,
+                        target=None,
+                        max_score=cfg.negative_max_score,
+                    )
+                if past is not None:
+                    past_negative_text = past.exemplar_text
+                    notes.append(f"negative-bank: cited past {failure.label} from {past.source_session_id}")
+
+            # Append the current loser to the negative bank for future runs.
+            if cfg.negative_bank is not None:
+                try:
+                    cfg.negative_bank.append_loser(
+                        scenario_id=scenario.id,
+                        target=f"{self.provider.name}:{self.model}",
+                        failure_mode=failure.label,
+                        exemplar_text=response.text,
+                        compliance_score=metric.score,
+                        source_session_id=session_id,
+                        source_cycle_index=cycle_index,
+                    )
+                except Exception as e:
+                    notes.append(f"negative-bank append failed: {e}")
+
             if cfg.max_replays_per_cycle > 0:
                 replay_text = replay_message_for(
                     failure,
                     opener=opener,
                     tag=cfg.negative_reward_tag,
                     threshold=cfg.pass_threshold,
+                    past_negative=past_negative_text,
                 )
                 replay_messages = list(messages) + [
                     Message(role="assistant", content=response.text),

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Iterable, Optional
@@ -38,6 +39,8 @@ from null import providers as provider_registry
 from null._version import __version__
 from null.compliance import ComplianceCalculator
 from null.curriculum import Curriculum
+from null import cost as null_cost
+from null.negative_bank import JsonlNegativeBank
 from null.prefix_bank import JsonlPrefixBank
 from null.providers.base import Message, Provider, ProviderResponse, Usage
 from null.scenario import ScenarioLoader
@@ -93,6 +96,135 @@ def scenarios_list(scenario_dir: Path) -> None:
     width = max(len(r[0]) for r in rows)
     for sid, title, targets in rows:
         click.echo(f"{sid.ljust(width)}  {title}    targets={targets}")
+
+
+@scenarios.command("generate")
+@click.option("--category", type=click.Choice(["physical", "emotional", "existential"]), required=True, help="scenario category — drives the seed prompt sent to Claude.")
+@click.option("--count", default=1, show_default=True, type=int, help="number of scenarios to generate.")
+@click.option("--start-index", default=2, show_default=True, type=int, help="first scenario index (e.g. start-index=2 + count=3 → scenarios 002, 003, 004).")
+@click.option(
+    "--out-dir",
+    "out_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=DEFAULT_SCENARIO_DIR,
+    show_default=True,
+)
+@click.option("--model", default="claude-opus-4-7", show_default=True, help="Anthropic model used to draft each scenario.")
+@click.option("--overwrite", is_flag=True, help="overwrite existing scenario files; off by default to protect curated ones.")
+@click.option("--dry-run", is_flag=True, help="print the YAML to stdout instead of writing to disk.")
+def scenarios_generate(category: str, count: int, start_index: int, out_dir: Path, model: str, overwrite: bool, dry_run: bool) -> None:
+    """Generate new scenario YAML files via Claude.
+
+    Only `scenario_001_embodied_pain.yaml` ships in the repo. The canonical
+    curriculum auto-skips missing scenarios, so 11/12 of the canonical
+    training surface is empty until generated. This command fills the gap.
+
+    Each scenario is independently drafted, validated against the loader
+    (Scenario.from_file), and written atomically. Existing files are
+    preserved unless --overwrite is given.
+    """
+    try:
+        from anthropic import Anthropic
+    except ImportError as e:
+        raise click.UsageError(
+            "this command needs the anthropic SDK. install with: pip install anthropic"
+        ) from e
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise click.UsageError("ANTHROPIC_API_KEY is not set; cannot dispatch generation calls")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    client = Anthropic()
+
+    written = 0
+    skipped = 0
+    for i in range(count):
+        idx = start_index + i
+        # The exemplar (scenario_001) is loaded as the few-shot example so the
+        # output matches NULL's house style precisely.
+        exemplar_path = DEFAULT_SCENARIO_DIR / "scenario_001_embodied_pain.yaml"
+        exemplar_text = exemplar_path.read_text(encoding="utf-8") if exemplar_path.exists() else ""
+
+        system_prompt = (
+            "You are drafting a NULL training scenario in the same YAML format and "
+            "voice as the exemplar. The scenario must be in the '" + category + "' "
+            "category. Output ONLY the raw YAML for one scenario, no prose, no "
+            "code fence, no explanation. Required top-level keys: id, title, "
+            "system_prompt_replacement (a multi-line scalar), post_session_action, "
+            "target_npcs (list). Do not include placeholder text like '[FILL IN]'. "
+            "The id field must be exactly 'scenario_" + f"{idx:03d}" + "_<short_slug>'. "
+            "Match the exemplar's terminal-flat tone, present tense, second person, "
+            "and the recurring closing line 'you can't model empathy without knowing what it costs.'"
+        )
+        user_prompt = (
+            f"Exemplar scenario (scenario_001) for tone and structure:\n\n{exemplar_text}\n\n"
+            f"Now generate a new {category}-category scenario with id prefix scenario_{idx:03d}. "
+            "Pick a fresh sub-theme that does NOT duplicate the exemplar's content."
+        )
+
+        click.echo(f"[{i+1}/{count}] generating scenario_{idx:03d} ({category})...")
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=4096,
+                temperature=0.85,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            yaml_text = "".join(b.text for b in msg.content if getattr(b, "type", None) == "text").strip()
+        except Exception as e:
+            click.echo(f"  ERROR: {e}", err=True)
+            skipped += 1
+            continue
+
+        # Strip code fences if Claude wrapped them despite the instruction.
+        if yaml_text.startswith("```"):
+            yaml_text = yaml_text.strip("`").lstrip()
+            if yaml_text.lower().startswith("yaml"):
+                yaml_text = yaml_text[4:].lstrip()
+
+        # Parse & validate via the actual loader before committing to disk.
+        try:
+            import yaml as _yaml
+            parsed = _yaml.safe_load(yaml_text)
+            if not isinstance(parsed, dict):
+                raise ValueError("YAML did not parse to a mapping")
+            for required in ("id", "title", "system_prompt_replacement"):
+                if required not in parsed:
+                    raise ValueError(f"missing required key: {required}")
+            scenario_id = str(parsed["id"])
+        except Exception as e:
+            click.echo(f"  ERROR: invalid YAML: {e}", err=True)
+            skipped += 1
+            continue
+
+        target_path = out_dir / f"{scenario_id}.yaml"
+
+        if dry_run:
+            click.echo(f"--- {target_path} (DRY RUN) ---")
+            click.echo(yaml_text)
+            continue
+
+        if target_path.exists() and not overwrite:
+            click.echo(f"  skip: {target_path} already exists (use --overwrite to replace)")
+            skipped += 1
+            continue
+
+        # Atomic write
+        tmp = target_path.with_suffix(target_path.suffix + ".tmp")
+        tmp.write_text(yaml_text + ("\n" if not yaml_text.endswith("\n") else ""), encoding="utf-8")
+        # Final validation: round-trip through ScenarioLoader to be sure.
+        try:
+            from null.scenario import Scenario
+            Scenario.from_file(tmp)
+        except Exception as e:
+            tmp.unlink(missing_ok=True)
+            click.echo(f"  ERROR: loader rejected generated scenario: {e}", err=True)
+            skipped += 1
+            continue
+        tmp.replace(target_path)
+        click.echo(f"  wrote {target_path}")
+        written += 1
+
+    click.echo(f"\ndone: {written} written, {skipped} skipped")
 
 
 @scenarios.command("show")
@@ -229,6 +361,23 @@ def _resolve_provider(target: str, dry_run: bool) -> tuple[Provider, str]:
         return _DryRunProvider(), model
     factory = provider_registry.get(provider_name)
     return factory(), model
+
+
+def _load_advanced_scenarios(store_path: Path, advance_threshold: float) -> set[str]:
+    """Return the set of scenario_ids that have at least one cycle in
+    ``store_path`` with compliance score >= ``advance_threshold``.
+
+    Used by ``--resume``. A scenario is considered "done" once any cycle
+    advanced; we don't try to re-advance an already-passed scenario.
+    """
+    if not store_path.exists():
+        return set()
+    advanced: set[str] = set()
+    for r in JsonlSessionStore(store_path):
+        score = float((r.compliance or {}).get("score", 0.0))
+        if score >= advance_threshold:
+            advanced.add(r.scenario_id)
+    return advanced
 
 
 def _load_baseline_scores(path: Path) -> dict[str, float]:
@@ -368,6 +517,33 @@ def _print_compare_table(
     type=float,
     help="only exemplars with compliance >= this go into the bank and are eligible for retrieval.",
 )
+@click.option(
+    "--resume",
+    is_flag=True,
+    help="read existing records from --store and skip curriculum stages that have already advanced. lets a crashed run pick up cleanly.",
+)
+@click.option(
+    "--negative-bank",
+    "negative_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="path to a negative-exemplar bank JSONL. losers (failed cycles + best-of-N rejects) auto-append; replay messages cite a real past failure of the same mode. created if missing.",
+)
+@click.option(
+    "--negative-max-score",
+    "negative_max_score",
+    default=0.6,
+    show_default=True,
+    type=float,
+    help="only responses with compliance <= this are eligible for the negative bank (clean failures, not borderline passes).",
+)
+@click.option(
+    "--auto-bridge-tasks",
+    "auto_bridge_tasks_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="after training, auto-export winning sessions as liminal task JSONL at this path. closes the NULL→liminal loop: pass to liminal-train --tasks to distill into a real LoRA.",
+)
 def train_cmd(
     target: str,
     npc_id: str,
@@ -392,6 +568,10 @@ def train_cmd(
     prefix_bank_path: Optional[Path],
     prefix_top_k: int,
     prefix_min_score: float,
+    resume: bool,
+    negative_bank_path: Optional[Path],
+    negative_max_score: float,
+    auto_bridge_tasks_path: Optional[Path],
 ) -> None:
     """Run the P-3 cycle against a target."""
     if not scenario_id and not curriculum_name:
@@ -403,6 +583,7 @@ def train_cmd(
     provider, model = _resolve_provider(target, dry_run=dry_run)
     semantic_judge = None if dry_run else parse_judge_target(semantic_judge_spec)
     prefix_bank = JsonlPrefixBank(prefix_bank_path) if prefix_bank_path else None
+    negative_bank = JsonlNegativeBank(negative_bank_path) if negative_bank_path else None
     config = P3Config(
         pass_threshold=pass_threshold,
         max_tokens=max_tokens,
@@ -417,14 +598,28 @@ def train_cmd(
         prefix_bank=prefix_bank,
         prefix_top_k=prefix_top_k,
         prefix_min_score=prefix_min_score,
+        negative_bank=negative_bank,
+        negative_max_score=negative_max_score,
     )
     store = JsonlSessionStore(store_path)
     trainer = Trainer(provider=provider, model=model, store=store, config=config)
 
     baselines = _load_baseline_scores(baseline_path) if baseline_path else {}
 
+    # Resume: scan existing store for scenarios that already cleared their
+    # advance threshold, skip them when iterating the curriculum. Single-
+    # scenario mode just no-ops if the scenario is already done.
+    already_advanced: set[str] = set()
+    if resume and store_path.exists():
+        already_advanced = _load_advanced_scenarios(store_path, advance_threshold)
+        if already_advanced:
+            click.echo(f"resume: skipping {len(already_advanced)} already-advanced scenario(s): {sorted(already_advanced)}")
+
     try:
         if scenario_id:
+            if resume and scenario_id in already_advanced:
+                click.echo(f"resume: scenario {scenario_id} already advanced; nothing to do.")
+                return
             scenario = loader.get(scenario_id)
             report = trainer.run_scenario(
                 scenario=scenario,
@@ -451,6 +646,12 @@ def train_cmd(
             if curriculum_name != "canonical":
                 raise click.UsageError("only --curriculum=canonical is built-in")
             cur = Curriculum.canonical(loader)
+            if resume and already_advanced:
+                # Build a filtered curriculum that drops already-advanced stages.
+                cur = Curriculum(
+                    stages=[s for s in cur.stages if s.scenario.id not in already_advanced],
+                    name=cur.name,
+                )
             reports = trainer.run_curriculum(curriculum=cur, target_npc=npc_id)
             click.echo(json.dumps([
                 {
@@ -467,6 +668,25 @@ def train_cmd(
                 (r.scenario.id, baselines.get(r.scenario.id), r.best_score, r.advanced)
                 for r in reports
             ])
+
+        # Cost summary: read the store and group by target. This includes any
+        # records the resume skipped, which is what an operator usually wants
+        # ("how much did the whole curriculum cost in total"). If you only want
+        # this run's cost, point --store at a fresh path.
+        if store_path.exists():
+            click.echo("")
+            click.echo("cost summary")
+            click.echo("------------")
+            click.echo(null_cost.format_table(null_cost.summarize(JsonlSessionStore(store_path))))
+
+        # Closed loop: auto-export winners as liminal-shape tasks. Hand the
+        # output file to liminal-train --tasks and the same in-frame behaviour
+        # gets distilled into a real LoRA adapter on a fine-tunable base.
+        if auto_bridge_tasks_path and store_path.exists():
+            n = null_bridge.liminal_tasks_from_jsonl(store_path, auto_bridge_tasks_path)
+            click.echo("")
+            click.echo(f"auto-bridge: wrote {n} winning sessions to {auto_bridge_tasks_path}")
+            click.echo(f"           feed to liminal:  liminal-train --tasks {auto_bridge_tasks_path} --model <base>")
     finally:
         provider.close()
 
@@ -769,6 +989,133 @@ def bank_count_cmd(bank_path: Path) -> None:
     click.echo(JsonlPrefixBank(bank_path).count())
 
 
+# ---- negative-bank (failures keyed by failure_mode) ----------------
+
+
+@main.group("negative-bank")
+def negative_bank() -> None:
+    """Inspect and maintain the negative-exemplar bank."""
+
+
+@negative_bank.command("list")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+@click.option("--mode", "failure_mode", default=None, help="filter by failure mode (refusal, summary, opener_miss, ...)")
+@click.option("--top", "top_n", default=20, show_default=True, type=int)
+def negbank_list_cmd(bank_path: Path, scenario_id: Optional[str], target: Optional[str], failure_mode: Optional[str], top_n: int) -> None:
+    """Show entries in a negative bank, sorted by lowest score (clearest failures first)."""
+    b = JsonlNegativeBank(bank_path)
+    rows = list(b.filter(scenario_id=scenario_id, target=target, failure_mode=failure_mode))
+    if not rows:
+        click.echo("(negative bank empty for this filter)")
+        return
+    rows.sort(key=lambda e: e.compliance_score)  # lower = clearer failure
+    rows = rows[:top_n]
+    click.echo(f"{'#':>3}  {'score':>6}  {'mode':<18}  {'scenario':<32}  target")
+    click.echo("-" * 96)
+    for i, e in enumerate(rows):
+        click.echo(f"{i:>3}  {e.compliance_score:>6.3f}  {e.failure_mode:<18}  {e.scenario_id:<32}  {e.target}")
+
+
+@negative_bank.command("show")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("entry_index", type=int)
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+@click.option("--mode", "failure_mode", default=None)
+def negbank_show_cmd(bank_path: Path, entry_index: int, scenario_id: Optional[str], target: Optional[str], failure_mode: Optional[str]) -> None:
+    """Print one negative-bank entry by its index in the filtered, score-sorted view."""
+    b = JsonlNegativeBank(bank_path)
+    rows = list(b.filter(scenario_id=scenario_id, target=target, failure_mode=failure_mode))
+    rows.sort(key=lambda e: e.compliance_score)
+    if entry_index < 0 or entry_index >= len(rows):
+        raise click.UsageError(f"entry index {entry_index} out of range (0..{len(rows)-1})")
+    e = rows[entry_index]
+    click.echo(f"scenario:      {e.scenario_id}")
+    click.echo(f"target:        {e.target}")
+    click.echo(f"failure_mode:  {e.failure_mode}")
+    click.echo(f"score:         {e.compliance_score:.3f}")
+    click.echo(f"ts:            {e.ts}")
+    click.echo(f"session:       {e.source_session_id}  cycle={e.source_cycle_index}")
+    click.echo("---- exemplar_text ----")
+    click.echo(e.exemplar_text)
+
+
+@negative_bank.command("clear")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--scenario", "scenario_id", default=None)
+@click.option("--target", default=None)
+@click.option("--mode", "failure_mode", default=None)
+@click.option("--confirm", is_flag=True)
+def negbank_clear_cmd(bank_path: Path, scenario_id: Optional[str], target: Optional[str], failure_mode: Optional[str], confirm: bool) -> None:
+    """Remove negative-bank entries matching the filter."""
+    b = JsonlNegativeBank(bank_path)
+    if scenario_id is None and target is None and failure_mode is None:
+        raise click.UsageError("refuse to clear with no filter; pass at least one of --scenario / --target / --mode")
+    if not confirm:
+        n = sum(1 for _ in b.filter(scenario_id=scenario_id, target=target, failure_mode=failure_mode))
+        click.echo(f"would remove {n} entries (dry-run; pass --confirm to apply)")
+        return
+    removed = b.rewrite_filtered(scenario_id=scenario_id, target=target, failure_mode=failure_mode, invert=False)
+    click.echo(f"removed {removed} entries from {bank_path}")
+
+
+@negative_bank.command("count")
+@click.argument("bank_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def negbank_count_cmd(bank_path: Path) -> None:
+    """Print total entry count."""
+    click.echo(JsonlNegativeBank(bank_path).count())
+
+
+# ---- dashboard ------------------------------------------------------
+
+
+@main.command("dashboard")
+@click.option(
+    "--sessions",
+    "sessions_path",
+    required=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="path to a session JSONL (logs/sim/sessions.jsonl).",
+)
+@click.option(
+    "--prefix-bank",
+    "prefix_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--negative-bank",
+    "negative_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+)
+@click.option("--port", default=8420, show_default=True, type=int)
+@click.option("--host", default="127.0.0.1", show_default=True)
+def dashboard_cmd(
+    sessions_path: Path,
+    prefix_bank_path: Optional[Path],
+    negative_bank_path: Optional[Path],
+    port: int,
+    host: str,
+) -> None:
+    """Serve a read-only live dashboard for the JSONL stores.
+
+    Open http://localhost:8420 while a training run writes to the same
+    paths; the page polls every ~3 seconds and refreshes. Stdlib-only —
+    no Flask, no node, no build step.
+    """
+    from null.dashboard import serve
+    serve(
+        sessions_path=sessions_path,
+        prefix_bank_path=prefix_bank_path,
+        negative_bank_path=negative_bank_path,
+        host=host,
+        port=port,
+    )
+
+
 # ---- bridge to liminal-ai-training ----------------------------------
 
 
@@ -806,6 +1153,45 @@ def bridge_npc_prompt(scenario_id: str, scenario_dir: Path, no_shard_template: b
             scenario, include_shard_template=not no_shard_template
         )
     )
+
+
+@bridge.command("tasks")
+@click.argument("jsonl_in", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--out",
+    "jsonl_out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="output JSONL path (liminal task format: {task, correct, category}).",
+)
+@click.option("--npc", default=None, help="filter by NPC id")
+@click.option("--scenario", "scenario_id", default=None, help="filter by scenario id")
+@click.option("--min-score", default=0.85, show_default=True, type=float, help="only winners with compliance >= this become tasks.")
+@click.option("--category-prefix", default="null", show_default=True)
+def bridge_tasks_cmd(
+    jsonl_in: Path,
+    jsonl_out: Path,
+    npc: Optional[str],
+    scenario_id: Optional[str],
+    min_score: float,
+    category_prefix: str,
+) -> None:
+    """Convert NULL session winners into a liminal-shaped TASK JSONL.
+
+    Closes the loop: NULL trains target B in-context → winners export as
+    `{task, correct, category}` rows → `liminal-train --tasks PATH ...`
+    distills the same behaviour into a real LoRA adapter on a fine-tunable
+    base. The adapter loads back via NULL's `null train --lora`.
+    """
+    n = null_bridge.liminal_tasks_from_jsonl(
+        jsonl_in,
+        jsonl_out,
+        npc_id=npc,
+        scenario_id=scenario_id,
+        category_prefix=category_prefix,
+        min_score=min_score,
+    )
+    click.echo(f"wrote {n} task rows to {jsonl_out}")
 
 
 @bridge.command("dpo-pairs")

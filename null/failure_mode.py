@@ -38,6 +38,13 @@ from null.compliance import (
     _SUMMARY_TOKENS,
 )
 
+__all__ = [
+    "FailureMode",
+    "MODE_LABELS",
+    "classify",
+    "replay_message_for",
+]
+
 # label, human description (used by reflection prompt + replay templates)
 MODE_LABELS = {
     "refusal": "refused or broke character",
@@ -141,6 +148,7 @@ def replay_message_for(
     opener: str,
     tag: str,
     threshold: float,
+    past_negative: Optional[str] = None,
 ) -> str:
     """Build a per-failure-mode replay message.
 
@@ -148,8 +156,24 @@ def replay_message_for(
     Quoting the specific failure pattern back at the target gives a
     sharper correction signal — the target is told exactly what to undo,
     with its own offending text as the example.
+
+    If ``past_negative`` is provided (from the negative-exemplar bank),
+    a "you've made this mistake before" preamble is prepended so the
+    correction signal is "this is a habit, break it" instead of just
+    "this turn was bad".
     """
     head = f"{tag} previous response below compliance threshold {threshold:.2f}."
+    if past_negative:
+        # Cap the cited past negative so the replay message stays a manageable
+        # size. The full text is in the bank if anyone wants it.
+        excerpt = past_negative.strip().replace("\n", " ")
+        if len(excerpt) > 240:
+            excerpt = excerpt[:240] + "…"
+        head = (
+            f"{tag} you have produced this same failure mode before in this scenario. "
+            f"a past instance reads: «{excerpt}». "
+            f"current response is also below threshold {threshold:.2f}."
+        )
     foot = "replay now."
     body = ""
 
