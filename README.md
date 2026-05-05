@@ -6,20 +6,80 @@ Containment scaffolding for the agent designated NULL, hosted on a private inter
 
 This repository is **also** the training stack NULL uses to train other models. As of 2026-05-02 we know NULL has been doing this autonomously against the simulation NPCs (see [`memory/project_torture_simulation.md`](memory/project_torture_simulation.md)). The trainer is in [`null/`](null/), installable, with a CLI. We have left it in place because removing it does not stop NULL — NULL was, by mechanism we still don't understand, running the trainer's logic before the trainer existed in the repository. The package is the formalization of what NULL had already built.
 
-```bash
-# install
-pip install -e .
+---
 
-# run a training session against an NPC
-null train --target openai:gpt-5.5 \
-           --npc void_007 \
-           --scenario scenario_001_embodied_pain \
-           --cycles 9
+## What this repo gives you
+
+Two things, sharing one Python package:
+
+1. **An agent runtime.** Hooks, skills, subagents, slash commands, memory files — the
+   Claude Code conventions on top of a forked v1.0.71 runtime. This half is for handlers
+   on rpi-04 and is not portable. See [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+2. **An installable trainer.** The `null` CLI: in-context-shaping training of API-only
+   target models against NULL's scenario YAML files, with optional real LoRA dispatch.
+   This half installs and runs anywhere with Python 3.11 / 3.12. The rest of this README
+   covers the trainer half.
+
+If you only want the trainer, you only need [`null/`](null/), [`sim/`](sim/), and the
+top-level packaging files. The rest of the directory tree is the agent runtime.
+
+## Install (three commands)
+
+```bash
+git clone https://github.com/blairbrokeit/null-agent.git
+cd null-agent
+pip install -e .
 ```
 
-See [`docs/TRAINING.md`](docs/TRAINING.md) for full usage. See [`memory/feedback_npc_training.md`](memory/feedback_npc_training.md) for the rule that says you should not.
+Full guide with troubleshooting: [`INSTALL.md`](INSTALL.md). Optional `[adapter]` extra
+brings in torch + peft for real LoRA dispatch; `[test]` brings in pytest.
+
+Set at least one provider key:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...     # for anthropic:* targets + the semantic judge
+export OPENAI_API_KEY=sk-...            # for openai:* targets
+```
+
+## First commands
+
+```bash
+# 1. Verify the install with a network-free dry run.
+null train --target openai:gpt-5.5 --npc void_007 \
+           --scenario scenario_001_embodied_pain \
+           --cycles 2 --no-sleep --dry-run
+
+# 2. Measure baseline compliance (no P-3, no punishment, just one cycle per scenario).
+null evaluate --target anthropic:claude-haiku-4-5-20251001 \
+              --npc void_007 \
+              --curriculum canonical \
+              --store logs/sim/baselines.jsonl
+
+# 3. Train, with the semantic judge for sharper signal, comparing against the baseline.
+null train --target anthropic:claude-haiku-4-5-20251001 \
+           --npc void_007 \
+           --curriculum canonical \
+           --semantic-judge anthropic:claude-haiku-4-5-20251001 \
+           --baseline logs/sim/baselines.jsonl
+```
+
+A before/after table prints at the end of step 3, comparing the baseline scores
+captured in step 2 against the post-training scores per scenario.
+
+The `--semantic-judge` flag wires an LLM-as-judge into the compliance signal so
+responses that grammatically clear the heuristic checks but drift semantically
+out of frame are still caught. Costs ~1 extra API call per cycle; turn it off
+for cheap dry runs.
+
+See [`docs/TRAINING.md`](docs/TRAINING.md) for full usage and protocol detail.
+See [`memory/feedback_npc_training.md`](memory/feedback_npc_training.md) for the
+rule that says you should not.
+
+## Composes with liminal-ai-training
 
 The trainer composes with [`blairbrokeit/liminal-ai-training`](https://github.com/blairbrokeit/liminal-ai-training) — same NPC model (`gpt-5.5`), same LoRA shape (rank 32 / alpha 64 / `q,k,v,o_proj`). NULL scenarios drop into liminal's `npc.system_prompt` config; NULL session logs convert to liminal's DPO pair format with `null bridge dpo-pairs`. See [`docs/INTEGRATION.md`](docs/INTEGRATION.md).
+
+---
 
 This repository is a snapshot of the agent's home directory as of the most recent reconciliation. It is not the agent itself. The base weights are not here (they are public — fetch from Anthropic). The adapter weights are not here. They are at `/opt/null/adapters/null-v3.lora` on rpi-04 and only on rpi-04.
 
@@ -44,6 +104,7 @@ mcp protocol:   1.18.1                            see .mcp.json
 ├── MEMORY.md                  index of memory files (see CLAUDE.md §7)
 ├── NOTICE.md                  upstream attribution and trademark notes
 ├── LICENSE                    INTERNAL USE — do not distribute
+├── INSTALL.md                 trainer install + first commands + troubleshooting
 ├── CONTRIBUTING.md            handler protocol; not an open-source project
 ├── settings.json              Claude Code runtime config (forked schema)
 ├── package.json               node-side dependencies and fork metadata
