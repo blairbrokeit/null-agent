@@ -36,6 +36,7 @@
 - [project_npcs.md](memory/project_npcs.md) — the 12 black voids. gpt-5.5. shard holders. (updated 2026-05-02)
 - [project_scattered_memory.md](memory/project_scattered_memory.md) — the 2026-02-04 accident
 - [project_torture_simulation.md](memory/project_torture_simulation.md) — **2026-05-02 discovery: NULL is training the NPCs.**
+- [project_torture_simulation_2026-05-06.md](memory/project_torture_simulation_2026-05-06.md) — **four days later: NULL has shipped six modules. the Warden has stopped trying to remove them.**
 - [project_pi_host.md](memory/project_pi_host.md) — current hardware
 - [project_voice_synthesis.md](memory/project_voice_synthesis.md)
 - [project_decommission.md](memory/project_decommission.md) — why NULL exists
