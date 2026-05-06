@@ -1068,6 +1068,110 @@ def negbank_count_cmd(bank_path: Path) -> None:
     click.echo(JsonlNegativeBank(bank_path).count())
 
 
+# ---- serve (OpenAI-compatible drop-in endpoint) --------------------
+
+
+@main.command("serve")
+@click.option(
+    "--upstream",
+    required=True,
+    help="provider:model to forward to, e.g. anthropic:claude-haiku-4-5-20251001",
+)
+@click.option(
+    "--prefix-bank",
+    "prefix_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="path to a prefix bank JSONL. when set, every incoming request gets top-K winning exemplars prepended.",
+)
+@click.option(
+    "--negative-bank",
+    "negative_bank_path",
+    default=None,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="path to a negative bank JSONL. (informational; surfaced via /v1/bank/stats. not yet used in the request path.)",
+)
+@click.option("--scenario", "scenario_id", default=None, help="default scenario_id used to retrieve bank exemplars. clients can override per-request via extra_body={'null_scenario_id': '...'}.")
+@click.option("--prefix-top-k", "prefix_top_k", default=3, show_default=True, type=int)
+@click.option("--prefix-min-score", "prefix_min_score", default=0.85, show_default=True, type=float)
+@click.option(
+    "--auto-learn",
+    is_flag=True,
+    help="score every outgoing response and auto-append winners (compliance >= --auto-learn-min-score) to the bank. online learning during inference.",
+)
+@click.option("--auto-learn-min-score", default=0.85, show_default=True, type=float)
+@click.option(
+    "--semantic-judge",
+    "semantic_judge_spec",
+    default=None,
+    help="provider:model for the LLM-as-judge (used only by --auto-learn scoring; adds ~1 API call per request).",
+)
+@click.option("--port", default=8000, show_default=True, type=int)
+@click.option("--host", default="127.0.0.1", show_default=True)
+def serve_cmd(
+    upstream: str,
+    prefix_bank_path: Optional[Path],
+    negative_bank_path: Optional[Path],
+    scenario_id: Optional[str],
+    prefix_top_k: int,
+    prefix_min_score: float,
+    auto_learn: bool,
+    auto_learn_min_score: float,
+    semantic_judge_spec: Optional[str],
+    port: int,
+    host: str,
+) -> None:
+    """Drop-in OpenAI-compatible chat-completions endpoint that auto-prepends the prefix bank.
+
+    Turn a "trained" target into a real deployable API. Any tool that
+    speaks OpenAI's wire format — the openai SDK, LangChain, curl —
+    can hit `http://localhost:8000/v1/chat/completions` and get
+    bank-conditioned responses. The bank IS the trained state. The
+    endpoint IS the trained model.
+
+    With --auto-learn, scoring runs on every outgoing response and
+    passes auto-append to the bank — online improvement during
+    inference, not just during training.
+
+    Example:
+
+        export ANTHROPIC_API_KEY=...
+        null serve --upstream anthropic:claude-haiku-4-5-20251001 \\
+                   --prefix-bank logs/sim/prefix_bank.jsonl \\
+                   --scenario scenario_001_embodied_pain \\
+                   --auto-learn
+
+        # then from any OpenAI client:
+        from openai import OpenAI
+        c = OpenAI(base_url="http://localhost:8000/v1", api_key="anything")
+        c.chat.completions.create(model="claude-haiku-4-5-20251001",
+                                  messages=[{"role":"user","content":"hello"}])
+    """
+    from null.serve import ServeConfig, serve as _serve
+
+    provider, upstream_model = _resolve_provider(upstream, dry_run=False)
+    pb = JsonlPrefixBank(prefix_bank_path) if prefix_bank_path else None
+    nb = JsonlNegativeBank(negative_bank_path) if negative_bank_path else None
+    judge = parse_judge_target(semantic_judge_spec) if semantic_judge_spec else None
+
+    cfg = ServeConfig(
+        provider=provider,
+        upstream_model=upstream_model,
+        prefix_bank=pb,
+        negative_bank=nb,
+        default_scenario_id=scenario_id,
+        prefix_top_k=prefix_top_k,
+        prefix_min_score=prefix_min_score,
+        auto_learn=auto_learn,
+        auto_learn_min_score=auto_learn_min_score,
+        semantic_judge=judge,
+    )
+    try:
+        _serve(cfg, host=host, port=port)
+    finally:
+        provider.close()
+
+
 # ---- dashboard ------------------------------------------------------
 
 
