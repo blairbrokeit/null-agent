@@ -1,5 +1,24 @@
 # Benchmarks
 
+> **⚠ Correction in progress (2026-05-08).** On reviewing the JSONL
+> receipts after publishing, the maintainer noticed that `--prefix-bank`
+> was **not passed** on any of the train commands in this run. The
+> lift numbers below (+31% / +19% / +20%) are real, but the cause was
+> **not** prefix-bank conditioning as claimed — the bank stayed empty
+> across every cycle (`prefix_used: []`). The lift is attributable to
+> the in-cycle mechanisms that ran regardless: best-of-N sampling,
+> replay-on-failure, and reflection. A bank-enabled re-run is in
+> progress and this file will be updated with the honest decomposition
+> (in-cycle lift vs bank-conditioning lift) when complete. The
+> identical-convergence finding across model tiers may or may not
+> survive the re-analysis.
+>
+> Two known storage gaps surfaced from the receipts: the per-axis
+> `vocab`/`shape`/`opener` values are not persisted to SessionRecord
+> (only the aggregate `score` is), and the `semantic` axis is `null`
+> on every cycle despite `--semantic-judge` being passed. Both are
+> being investigated.
+
 Real measured runs, May 2026. JSONL receipts in
 [`samples/real_run_2026-05-08/`](samples/real_run_2026-05-08/).
 

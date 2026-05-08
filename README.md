@@ -16,14 +16,13 @@ null dashboard --sessions samples/sessions.jsonl \
 
 → [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Benchmarks (real measured run)](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
 
-> **Measured benchmark, May 2026:** +31% / +19% / +20% mean compliance
-> lift across Claude Haiku 4.5, Sonnet 4.6, Opus 4.7 on the canonical
-> 3-scenario curriculum, for ≈ $0.30 in total API spend. All three
-> tiers begin scenario_001 (strict JSON) at the *identical* 0.410
-> baseline and converge to 0.557 with prefix-bank conditioning —
-> strong evidence that strict-format failures aren't a capacity
-> ceiling. Full matrix and JSONL receipts in
-> [`BENCHMARKS.md`](BENCHMARKS.md). Cross-vendor runs welcome.
+> **⚠ Benchmark correction in progress (2026-05-08):** the published
+> +31% / +19% / +20% lift numbers across Haiku 4.5, Sonnet 4.6, Opus 4.7
+> are real but were *misattributed* — the prefix bank was not actually
+> enabled on the train commands, so the lift comes from in-cycle
+> mechanisms (best-of-N + replay + reflection), not bank conditioning.
+> Bank-enabled re-run in progress. See [`BENCHMARKS.md`](BENCHMARKS.md)
+> for the correction notice and JSONL receipts.
 
 ---
 
