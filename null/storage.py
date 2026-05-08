@@ -37,6 +37,8 @@ class SessionRecord:
     input_tokens: int
     output_tokens: int
     compliance: dict
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     suspended_seconds: float = 0.0
     replayed: bool = False
     notes: list[str] = field(default_factory=list)

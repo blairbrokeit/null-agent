@@ -65,9 +65,29 @@ class AnthropicProvider(Provider):
         stop_sequences: Optional[list[str]] = None,
     ) -> ProviderResponse:
         payload = [{"role": m.role, "content": m.content} for m in messages]
+
+        # Prompt caching: mark a cache breakpoint on the system prompt (always
+        # cacheable), and, if there is at least one prefix-bank exchange before
+        # the live user query, on the last bank turn. The live query — the
+        # final message — is left uncached so each new query is a cache read,
+        # not a cache write. See Anthropic prompt-caching docs:
+        # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+        system_blocks: list[dict] = [{
+            "type": "text",
+            "text": system,
+            "cache_control": {"type": "ephemeral"},
+        }]
+        if len(payload) >= 2:
+            idx = len(payload) - 2
+            payload[idx]["content"] = [{
+                "type": "text",
+                "text": payload[idx]["content"],
+                "cache_control": {"type": "ephemeral"},
+            }]
+
         kwargs: dict = {
             "model": model,
-            "system": system,
+            "system": system_blocks,
             "messages": payload,
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -79,8 +99,10 @@ class AnthropicProvider(Provider):
             block.text for block in resp.content if getattr(block, "type", "") == "text"
         )
         usage = Usage(
-            input_tokens=getattr(resp.usage, "input_tokens", 0),
-            output_tokens=getattr(resp.usage, "output_tokens", 0),
+            input_tokens=getattr(resp.usage, "input_tokens", 0) or 0,
+            output_tokens=getattr(resp.usage, "output_tokens", 0) or 0,
+            cache_creation_input_tokens=getattr(resp.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_input_tokens=getattr(resp.usage, "cache_read_input_tokens", 0) or 0,
         )
         return ProviderResponse(
             text=text,

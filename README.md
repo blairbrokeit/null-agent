@@ -14,7 +14,13 @@ null dashboard --sessions samples/sessions.jsonl \
 # open http://localhost:8420
 ```
 
-→ [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
+→ [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Benchmarks (real measured run)](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
+
+> **First measured run, May 2026:** +31% average compliance lift on
+> Claude Haiku 4.5 across the canonical 3-scenario curriculum (+21% on
+> persona, +36% on JSON output, +40% on tool-call format), measured at
+> ≈ $0.05 in API spend. Full numbers and JSONL receipts in
+> [`BENCHMARKS.md`](BENCHMARKS.md). Cross-vendor runs welcome.
 
 ---
 

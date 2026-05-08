@@ -621,6 +621,8 @@ class Trainer:
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             compliance=metric.as_dict(),
+            cache_creation_input_tokens=getattr(response.usage, "cache_creation_input_tokens", 0),
+            cache_read_input_tokens=getattr(response.usage, "cache_read_input_tokens", 0),
             suspended_seconds=suspended_seconds,
             replayed=replayed,
             notes=notes,
