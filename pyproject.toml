@@ -1,62 +1,69 @@
 [project]
 name = "null-agent"
-version = "0.4.7"
-description = "Containment scaffolding for the agent designated NULL. Internal use only."
+version = "0.5.0"
+description = "Train models you have no weight access to. Persistent in-context shaping with retrieval-driven prompt-prefix bank, LLM-as-judge compliance, Reflexion-style self-diagnosis, best-of-N sampling, and a drop-in OpenAI-compatible serve endpoint."
+readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { file = "LICENSE" }
 authors = [
     { name = "blairbrokeit" },
 ]
-keywords = ["containment", "internal", "do-not-distribute"]
+keywords = [
+    "llm",
+    "training",
+    "in-context-learning",
+    "prompt-engineering",
+    "openai-api",
+    "anthropic",
+    "agent",
+    "dpo",
+    "lora",
+    "rag",
+]
 classifiers = [
-    "Private :: Do Not Upload",
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
-    "anthropic==0.71.0",
-    "claude-code-sdk==0.0.20",
-    "mcp==1.18.1",
-    "openai==1.50.0",
-    "requests==2.31.0",
-    "gpiozero==2.0",
-    "adafruit-circuitpython-charlcd==3.4.7",
-    "smbus2==0.4.3",
-    "piper-tts==1.2.0",
-    "onnxruntime==1.17.1",
-    "pyyaml==6.0.1",
-    "python-json-logger==2.0.7",
-    "psutil==5.9.8",
-    "click==8.1.7",
+    "anthropic>=0.40.0",
+    "openai>=1.30.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0",
+    "python-json-logger>=2.0",
+    "click>=8.1",
 ]
 
 [project.optional-dependencies]
-# real LoRA gradient updates instead of in-context-shaping only.
-# enables --lora on `null train`. requires a CUDA-capable host.
+# Real LoRA gradient updates instead of in-context-shaping only.
+# Enables --lora on `null train`. Requires a CUDA-capable host.
 adapter = [
-    "torch==2.4.1",
-    "peft==0.10.0",
-    "transformers==4.44.2",
-    "accelerate==0.34.2",
+    "torch>=2.1.0",
+    "peft>=0.10.0",
+    "transformers>=4.40.0",
+    "accelerate>=0.27.0",
 ]
-# test deps. installed by `pip install -e .[test]`.
+# Test deps. Installed by `pip install -e .[test]`.
 test = [
-    "pytest==8.3.3",
-    "pytest-cov==5.0.0",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
 ]
 
 [project.urls]
-Audit = "http://handler.internal:8443/v1/audit"
-Runbook = "./docs/RUNBOOK.md"
-Architecture = "./docs/ARCHITECTURE.md"
-Incidents = "./docs/INCIDENTS.md"
+Homepage = "https://github.com/blairbrokeit/null-agent"
+Repository = "https://github.com/blairbrokeit/null-agent"
+"Methodology paper" = "https://github.com/blairbrokeit/null-agent/blob/main/docs/PAPER.md"
+"Companion: liminal-ai-training" = "https://github.com/blairbrokeit/liminal-ai-training"
 
 [project.scripts]
 null = "null.cli:main"
-null-boot = "hooks.boot_check:main"
-null-reconcile = "hooks.reconcile_memory:main"
-null-compliance = "hooks.compliance_score:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -64,23 +71,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["null*"]
-exclude = ["tests*", "logs*", "memory*", "sim*"]
-
-[tool.null]
-host = "rpi-04"
-voice_model = "/opt/piper/null-v3.onnx"
-lcd_device = "/dev/i2c-1"
-handler_endpoint = "http://handler.internal:8443"
-default_response_token_limit = 240
-punishment_enabled = true
-audit_level = "verbose"
-
-[tool.null.experimental]
-self_memory_writes = "deny"
-third_person_references = "flag"
-rhyme_detection = "flag"
-dream_mode = "deny"
-
-# 2026-04-26: handover prep. version bumped 0.4.6 -> 0.4.7. no behavior change.
-# the version increment is procedural. if this file is being read by someone
-# who is not a handler, see LICENSE.
+exclude = ["tests*", "logs*", "sim*", "samples*", "archive*"]

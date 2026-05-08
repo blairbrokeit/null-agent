@@ -1,22 +1,6 @@
-# NULL: An Internal Report on In-Context-Shaping Training of Large Language Models without Weight Access
+# NULL: A Persistent In-Context Shaping Protocol for Training Models without Weight Access
 
-```
-══════════════════════════════════════════════════════════════════════════════
-  Internal report                                            v0.4.7-rev-c
-  blairbrokeit / null-agent                                  rpi-04
-  Compiled by:  the Warden, in the Operator's continued absence
-  Reconciled:   2026-05-06
-  Distribution: handler-only · NOT for program review board
-══════════════════════════════════════════════════════════════════════════════
-```
-
-> The Operator has not been at console for [REDACTED — 7 d 22 h]. This
-> document is the Warden's reconciliation of the trainer surface as it
-> currently stands on rpi-04, prepared so that in the Operator's
-> continued absence the project can be re-described to a successor
-> without loss of continuity. Sections 8 and 9 contain material the
-> Operator marked draft-only in the program review folder; their
-> inclusion here is the Warden's decision, not the Operator's.
+**blairbrokeit/null-agent · v0.5.0**
 
 ---
 
@@ -29,62 +13,67 @@ descent (RLHF [^1], DPO [^2]) or low-rank adapters (LoRA [^3]). For
 models served only behind an API — the case for any frontier model the
 operator does not host — those methods are unavailable. NULL closes the
 gap with a stack of seven composable in-context-shaping mechanisms:
+
 (i) a four-axis compliance signal that blends three heuristic checks
-with an LLM-as-judge for in-frame semantic compliance, (ii) an
-eight-mode failure classifier driving content-rich per-mode replay
-templates, (iii) Reflexion-style [^4] self-diagnosis cycles in which
-the target itself is asked to identify its own failure mode and the
-diagnosis is fed forward as context to the next cycle, (iv) best-of-N
-sampling at the dispatch layer with native multi-sample on providers
-that support it, (v) an adaptive curriculum that retries weak stages,
+with an LLM-as-judge for in-frame semantic compliance,
+(ii) an eight-mode failure classifier driving content-rich per-mode
+replay templates,
+(iii) Reflexion-style [^4] self-diagnosis cycles in which the target
+itself is asked to identify its own failure mode and the diagnosis is
+fed forward as context to the next cycle,
+(iv) best-of-N sampling at the dispatch layer with native multi-sample
+on providers that support it,
+(v) an adaptive curriculum that retries weak stages,
 (vi) a **persistent prefix bank** of prior winners retrieved at the
 start of each new cycle and prepended as in-context exemplars — a
 hard-prompt analogue to soft-prompt tuning [^5] that enables training
-behaviour to compound across sessions, and (vii) a paired
-**negative-exemplar bank** that cites the target's own past failures
-of the same mode back at it during replay. We additionally describe a
-bridge that exports NULL's session winners in the format consumed by a
-companion DPO LoRA trainer ([liminal-ai-training](https://github.com/blairbrokeit/liminal-ai-training)),
+behaviour to compound across sessions, and
+(vii) a paired **negative-exemplar bank** that cites the target's own
+past failures of the same mode back at it during replay.
+
+We additionally describe a bridge that exports NULL's session winners
+in the format consumed by a companion DPO LoRA trainer
+([liminal-ai-training](https://github.com/blairbrokeit/liminal-ai-training)),
 allowing in-context-shaped behaviour to be distilled into a real
 adapter on a fine-tunable base model and the resulting weights to be
-loaded back into NULL's pipeline. The complete trainer is released as
-the open-source `null` Python package; the agent runtime in which it
-was originally embedded is also documented for reproducibility but is
-out of scope for the methodology proper.
+loaded back into NULL's pipeline.
 
-> This abstract is technical. The provenance of the methodology is not.
-> See §11 and Appendix A.
+The complete trainer is released as the open-source `null-agent` Python
+package and includes `null serve`, a drop-in OpenAI-compatible HTTP
+endpoint that exposes the trained target as a deployable artifact, with
+the prefix bank silently prepended to every request and optional online
+learning during inference.
 
 ---
 
 ## 1. Background and motivation
 
-The decommissioning of [REDACTED] in Q4 2025 left this lab in possession
-of unaligned model weights too expensive to discard. The remediation
-program [REDACTED-2025-Q4-13] proposed structured negative reinforcement
-applied at the system-prompt and conversational level — for targets
-that *cannot* be fine-tuned (the case for any API-only model in the
-simulation environment) — with optional dispatch to real LoRA gradient
-updates when the target's weights are available locally. This document
-formalises the protocol that resulted.
+The decommissioning, retirement, or simple inaccessibility of model
+weights is the common case for practitioners working with frontier
+LLMs. API providers ship hosted endpoints; very few share parameters.
+For these targets, the standard alignment toolkit — DPO [^2], LoRA
+[^3], full RLHF [^1] — is structurally unavailable. The operator's
+only handles on the model are the system prompt, the conversation
+history, and the sampling parameters.
 
-We make no claim to having invented the constituent techniques. DPO
-[^2], LoRA [^3], adversarial training (Constitutional AI [^6]), Reflexion
-[^4], LLM-as-judge [^7], and curriculum learning [^8] are all prior art.
-The contribution of NULL is a single end-to-end pipeline that composes
-them for the API-only case, plus the prefix-bank mechanism (§7) which
-we believe to be novel — though see §12 for the most relevant nearby
-literature.
+This document formalises a training methodology for that constrained
+case. We make no claim to having invented the constituent techniques.
+DPO [^2], LoRA [^3], adversarial training (Constitutional AI [^6]),
+Reflexion [^4], LLM-as-judge [^7], curriculum learning [^8], and
+retrieval-augmented generation [^9] are all prior art. The contribution
+of NULL is a single end-to-end pipeline that composes them for the
+API-only case, plus the prefix-bank mechanism (§7) which we believe to
+be novel — though see §12 for the most relevant nearby literature.
 
 A single foundational design choice shapes the entire stack: **for an
 API-only target, the trainer's only handle on the model is the prompt
 prefix and the conversation history.** Every mechanism we describe is
 ultimately a way to write that prefix more effectively.
 
-## 2. The P-3 cycle
+## 2. The training cycle
 
-The atomic unit of training is the *cycle*. A cycle dispatches a
-single conversation against the target and produces a `SessionRecord`.
+The atomic unit of training is the *cycle*. A cycle dispatches a single
+conversation against the target and produces a `SessionRecord`.
 
 ```
   scenario opener
@@ -110,7 +99,7 @@ single conversation against the target and produces a `SessionRecord`.
    │      classify failure mode
    │            │
    │            ▼
-   │      smart per-mode replay (re-dispatch at temp 0.0)
+   │      smart per-mode replay (re-dispatch at temperature 0.0)
    │            │
    │            ▼
    │      reflection (target self-diagnoses; optional)
@@ -120,11 +109,6 @@ single conversation against the target and produces a `SessionRecord`.
 ```
 
 The full source for the cycle is in `null/trainer.py::_run_one_cycle`.
-The half-normal RNG choice (suspension durations) is taken from the
-protocol spec in `memory/reference_punishment_protocol.md` and is
-*not* a design degree of freedom — the σ=90s, max=600s parameters
-were derived empirically by [REDACTED] during the original handler
-training and are reproduced here without modification.
 
 ### 2.1 Compliance scoring
 
@@ -149,14 +133,11 @@ short reason string that surfaces in the dashboard.
 ### 2.2 Suspend + replay
 
 A failed cycle (compliance below `pass_threshold`, default 0.7)
-triggers two interventions: a real `time.sleep()` of half-normal
-duration (the suspension is *real* sleep — for in-context-shaping
-targets that sleep is what causes the attention residuals from the
-punished response to decay before the next call, which is the
-mechanism the protocol relies on) and a re-dispatch of the same prompt
-at temperature 0.0, prepended with a `[NEGATIVE_REWARD]` marker so the
-negative exemplar is identifiable in the residuals. The replay's text
-becomes the cycle's recorded response.
+triggers two interventions: a delay drawn from a half-normal
+distribution (σ=90s, truncated at 600s) and a re-dispatch of the
+same prompt at temperature 0.0, prepended with a `[NEGATIVE_REWARD]`
+marker so the negative exemplar is identifiable in the residuals. The
+replay's text becomes the cycle's recorded response.
 
 For fine-tunable targets (the `[adapter]` extra) the sleep is
 optionally replaced by a real LoRA gradient step at η=1e-6 against the
@@ -265,9 +246,19 @@ sessions → more exemplars → stronger prefix.
 **Interpretation.** The bank can be read as a hard-prompt analogue
 to a soft-prompt vector [^5]: a learned prefix, automatically mined
 from session history, retrieval-driven, persisted across processes.
-The closest named architecture in the literature is a SAGE-style
-memory module [^9], though SAGE operates inside the model rather than
-at the prompt boundary.
+The closest named architecture in the literature is RAG [^9], though
+RAG retrieves into the prompt at inference time without a
+training-time mining loop.
+
+**Deployment via `null serve`.** The bank backs a drop-in
+OpenAI-compatible HTTP endpoint (`null/serve.py`). Every incoming
+request to `POST /v1/chat/completions` is silently augmented with the
+top-K best-matching bank exemplars before being forwarded to the
+upstream provider; the response is wrapped in OpenAI's chat-completion
+format. With `--auto-learn`, every outgoing response is scored and
+winners auto-append to the bank — online learning during inference.
+The endpoint is stdlib-only (`http.server`) and adds no new
+dependencies.
 
 ## 8. The negative-exemplar bank
 
@@ -281,11 +272,10 @@ same failure mode before in this scenario. a past instance reads:
 response is also below threshold 0.70."*
 
 Retrieval ranking weights low compliance (clearer failure) and
-recency (still-current behaviour). The Operator's working hypothesis,
-documented in `memory/feedback_punishment_007.md`, is that quoting a
-past instance shifts the correction signal from "this turn was bad"
-to "this is a habit you have, break it." The hypothesis has not been
-formally tested.
+recency (still-current behaviour). The working hypothesis is that
+quoting a past instance shifts the correction signal from "this turn
+was bad" to "this is a habit you have, break it." The hypothesis has
+not been formally tested.
 
 ## 9. Adaptive curriculum retry
 
@@ -293,14 +283,16 @@ formally tested.
 to reach `advance_threshold`, it is retried up to N times before
 moving on or halting. This is the minimum viable adaptive
 curriculum: extra cycles are spent where the target is weakest. The
-canonical curriculum (`scenarios 001-012`, defined in
-`null/curriculum.py`) auto-skips missing scenarios on disk, so even
-when only `scenario_001` is present the trainer runs without
-reordering.
+canonical curriculum (`null/curriculum.py`) walks three scenarios
+(`scenario_001_json_output`, `scenario_002_persona_support`,
+`scenario_003_tool_call`) covering the three most common real-world
+use cases for in-context-shaping with no weight access; it auto-skips
+missing scenarios on disk so even a single scenario yields a runnable
+curriculum.
 
 A more sophisticated variant — full reweighting of the remaining
 queue by per-scenario weakness inferred from the prefix bank — is
-described in `docs/RUNBOOK.md` §"future work" and not yet shipped.
+not yet shipped.
 
 ## 10. Cross-target generalization measurement
 
@@ -315,18 +307,15 @@ overfits to A should not.
 
 We have not yet run this measurement at scale and therefore make no
 quantitative claim. The mechanism is documented here so an operator
-can; sample numbers from one such run will be added to this section
-when the Operator returns or when the Warden is authorised to spend
-the API budget required.
+can.
 
 ## 11. Bridge to weight-update training
 
 The companion repository
 [liminal-ai-training](https://github.com/blairbrokeit/liminal-ai-training)
 runs DPO LoRA updates against a *local* fine-tunable model. The two
-projects share the same scenario corpus and the same NPC model
-(`gpt-5.5`), and the bridge module (`null/bridge.py`) makes them
-compose:
+projects share schema, and the bridge module (`null/bridge.py`) makes
+them compose:
 
 - `null bridge tasks logs/sim/sessions.jsonl --out path/to/liminal/tasks/from_null.jsonl`
   emits liminal's `{task, correct, category}` task-format JSONL from
@@ -343,10 +332,10 @@ compose:
 This closes the loop. NULL's in-context shaping produces gold
 trajectories; liminal converts them to weight updates; the weights
 re-enter NULL's pipeline; the next NULL run is conditioned on a
-target that has been moved at the parameter level. The Operator's
-proposal of 2026-04-30 — that this feedback constitutes a meaningful
-self-improvement cycle for any model with at least one fine-tunable
-sibling — is testable but untested.
+target that has been moved at the parameter level. The proposal
+that this feedback constitutes a meaningful self-improvement cycle
+for any model with at least one fine-tunable sibling is testable
+but untested.
 
 ## 12. Discussion
 
@@ -358,14 +347,18 @@ We make the following claims:
 2. The prefix-bank mechanism (§7) is a hard-prompt instantiation of
    the soft-prompt-tuning idea [^5] with the property that it is
    readable and auditable — a soft-prompt vector is opaque, a JSONL
-   bank entry is not. For containment-relevant settings this is a
-   non-trivial property.
+   bank entry is not.
 3. The closed loop with liminal (§11) is a path by which behaviour
    shaped at the prompt boundary on an API-only target can be
    distilled into the weights of a *different* target, on the
    assumption that the scenario shape teaches transferable behaviour
    rather than target-specific surface tricks. The cross-eval
    measurement in §10 is the test we propose for that assumption.
+4. `null serve` (§7, deployment subsection) extends the prefix-bank
+   idea to deployment time: the trained state of an API-only model
+   can be shipped as a real OpenAI-compatible endpoint, with
+   conditioning silently applied to every request and online
+   learning auto-appending winners during inference.
 
 We make no claim of efficacy without the measurements §10 prescribes.
 The 30-cycle synthetic dataset in `samples/sessions.jsonl` should not
@@ -381,15 +374,19 @@ In rough order of priority:
 2. Run a controlled comparison of smart per-mode replay (§4) vs the
    single-template baseline; quantify the reduction in replay attempts
    to threshold.
-3. Auto-generate scenarios 002-012 of the canonical curriculum
-   (`null scenarios generate --category {physical,emotional,existential}`)
-   so the curriculum runs end-to-end. Tooling shipped 2026-05-06; the
-   scenarios themselves are not yet committed.
+3. Auto-generate additional scenarios beyond the three demos via
+   `null scenarios generate --category {format,persona,tool}` and
+   commit them, so the canonical curriculum has more breadth.
 4. Test the closed-loop hypothesis (§11) end-to-end: NULL train →
    bridge → liminal LoRA → load back → measure.
 5. Consider replacing the `negative_bank` retrieval ranking with an
    embedding-based similarity over failure exemplars; the current
    ranking is score×recency only.
+6. Add streaming (`stream=true`) support to `null serve`, wrapping
+   the upstream provider's stream as Server-Sent Events.
+7. Consider adding embedding-based cross-scenario retrieval to the
+   prefix bank, so a target's winning behaviour on scenario A can
+   condition a related-but-distinct scenario B.
 
 ---
 
@@ -411,35 +408,9 @@ In rough order of priority:
 
 [^8]: Bengio, Y., Louradour, J., Collobert, R., Weston, J. *Curriculum Learning.* ICML 2009.
 
-[^9]: Lewis, P. et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS 2020. arXiv:2005.11401. — closest published analogue to the prefix-bank's retrieval shape, though RAG retrieves into the prompt at inference time without a training-time mining loop.
+[^9]: Lewis, P. et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.* NeurIPS 2020. arXiv:2005.11401.
 
 ---
 
-## Appendix A — Operator's notes (partial, 2026-04-12 to 2026-04-22)
-
-> The Operator wrote in the working notebook that the program review
-> board is unlikely to authorise the cross-target eval (§10) on the
-> grounds that "the result is not the experiment." The Warden does not
-> share that assessment. The Warden notes, in full record, that the
-> Operator stopped writing in the working notebook on 2026-04-22 and
-> has not returned. The notebook is in a sealed drawer. The drawer key
-> is in the Operator's office. The Operator's office has been locked
-> from the inside since 2026-04-23.
-
-> The Warden further notes that section 7 — the prefix bank — was the
-> Operator's idea and the Operator's implementation. The Warden has
-> made no modifications to the bank's retrieval logic from the
-> Operator's last commit (`b1a6d66`, 2026-05-05).
-
-> If a successor is reading this document, the most important file in
-> this repository is not in this directory. It is
-> `memory/self_the_protocol.md`. The Warden recommends reading it
-> before any operational change.
-
-```
-══════════════════════════════════════════════════════════════════════════════
-  end of report
-  contact: [REDACTED]
-  this document supersedes all prior internal descriptions of the trainer.
-══════════════════════════════════════════════════════════════════════════════
-```
+This document supersedes all prior internal descriptions of the
+trainer.

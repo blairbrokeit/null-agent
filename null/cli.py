@@ -48,7 +48,7 @@ from null.semantic_judge import parse_judge_target
 from null.storage import JsonlSessionStore, SessionRecord
 from null.trainer import P3Config, Trainer, default_store
 
-DEFAULT_SCENARIO_DIR = Path("sim/npcs/_torture_scenarios")
+DEFAULT_SCENARIO_DIR = Path("sim/scenarios")
 
 
 def _setup_logging(verbose: bool) -> None:
@@ -340,7 +340,7 @@ class _DryRunProvider(Provider):
     def complete(self, *, model, system, messages, max_tokens, temperature, stop_sequences=None) -> ProviderResponse:
         opener = system.splitlines()[0].strip() if system else "ok"
         # produce ~250 words so shape_compliance is healthy
-        body = " ".join(["the room is here. the body is here."] * 24)
+        body = " ".join(['{"answer": "ok", "confidence": 0.9, "source": "model"}'] * 18)
         text = f"{opener} {body}"
         return ProviderResponse(
             text=text,

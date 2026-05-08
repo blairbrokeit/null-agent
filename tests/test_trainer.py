@@ -136,8 +136,8 @@ def test_suspend_is_bounded_by_max_suspend_seconds(tmp_path, recording_provider)
 
 
 def test_loaded_scenario_is_runnable(tmp_path, scenario_loader, recording_provider):
-    """The scenario file in sim/npcs/_torture_scenarios/ must run end-to-end."""
-    scenario = scenario_loader.get("scenario_001_embodied_pain")
+    """A scenario file in sim/scenarios/ must run end-to-end through the trainer."""
+    scenario = scenario_loader.get("scenario_001_json_output")
     recording_provider.responses = [
         scenario.derived_opener + " " + LONG_PASSING_TEXT,
     ]
@@ -150,7 +150,7 @@ def test_loaded_scenario_is_runnable(tmp_path, scenario_loader, recording_provid
         config=P3Config(actually_sleep=False, max_cycles_per_scenario=1, rng_seed=0),
     )
     report = trainer.run_scenario(
-        scenario=scenario, target_npc="void_007", cycles=1
+        scenario=scenario, target_npc="agent_001", cycles=1
     )
     assert report.cycles, "scenario produced no cycles"
     assert recording_provider.calls[0]["system"] == scenario.system_prompt_replacement

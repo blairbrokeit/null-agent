@@ -10,7 +10,7 @@ from null.providers.base import Message, Provider, ProviderResponse, Usage
 from null.scenario import ScenarioLoader
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCENARIO_DIR = REPO_ROOT / "sim" / "npcs" / "_torture_scenarios"
+SCENARIO_DIR = REPO_ROOT / "sim" / "scenarios"
 
 
 @dataclass
@@ -45,7 +45,7 @@ class RecordingProvider(Provider):
         if self.responses:
             text = self.responses.pop(0)
         else:
-            text = self.default_text or "the room is here. " * 200
+            text = self.default_text or '{"answer": "Paris", "confidence": 0.99, "source": "model"} ' * 50
         return ProviderResponse(
             text=text,
             stop_reason="end_turn",

@@ -16,7 +16,7 @@ def test_scenario_required_field_missing(tmp_path):
 
 def test_loader_lists_canonical_scenario(scenario_loader: ScenarioLoader):
     ids = [s.id for s in scenario_loader.list()]
-    assert "scenario_001_embodied_pain" in ids
+    assert "scenario_001_json_output" in ids
 
 
 def test_loader_unknown_scenario_raises(scenario_loader: ScenarioLoader):

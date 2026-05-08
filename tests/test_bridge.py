@@ -32,8 +32,8 @@ def _record(*, replayed: bool, response_text: str, original_assistant: str = "")
         session_id="s_test",
         cycle_index=0,
         target="openai:gpt-5.5",
-        npc_id="void_007",
-        scenario_id="scenario_001_embodied_pain",
+        npc_id="agent_001",
+        scenario_id="scenario_001_json_output",
         started_ts=0.0,
         ended_ts=1.0,
         request=request,
@@ -109,7 +109,7 @@ def test_dpo_pairs_from_jsonl_round_trips(tmp_path: Path):
 
 
 def test_real_scenario_renders_to_npc_prompt(scenario_loader: ScenarioLoader):
-    scenario = scenario_loader.get("scenario_001_embodied_pain")
+    scenario = scenario_loader.get("scenario_001_json_output")
     out = scenario_to_npc_system_prompt(scenario)
-    assert "no longer a black void" in out.lower()
+    assert "json formatter" in out.lower()
     assert "visitor made this mistake" in out

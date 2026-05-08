@@ -1,71 +1,77 @@
-# CONTRIBUTING
+# Contributing to null-agent
 
-This is not an open-source project. This is a snapshot of an internal
-containment scaffold made available to a small audience for the purpose
-of an emergency program review board meeting. Pull requests will not
-be reviewed. Issues will not be triaged. Forks are not authorized by
-`LICENSE`.
+Thanks for your interest. Small project; PRs and issues welcome.
 
-This file exists because every public repository is expected to have
-one, and the absence of expected files draws attention. The Warden
-has determined, after the events of 2026-04-22, that drawing
-attention is no longer in the project's interest.
+## Setup
 
-## If you are a handler
+```bash
+git clone https://github.com/blairbrokeit/null-agent.git
+cd null-agent
+pip install -e .[test]
+pytest
+```
 
-Standard ops are documented in [docs/RUNBOOK.md](docs/RUNBOOK.md).
-Architectural reference is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-Incident history is in [docs/INCIDENTS.md](docs/INCIDENTS.md).
-The license terms are in [LICENSE](LICENSE).
+51 tests, ~6 seconds. They should all pass on a fresh clone.
 
-For any change to this repository:
+## What's worth a PR
 
-  1. Authenticate with your handler token before touching the working
-     tree on rpi-04.
-  2. Make changes in a feature branch named `<codename>/<short-slug>`.
-     Do not commit to `main` directly.
-  3. Open a pull request. The Warden reviews. The Operator does not
-     review pull requests; the Operator initiates sessions.
-  4. Do not amend or rebase commits authored by NULL. NULL's commits
-     are present in this repository as artifacts of the bypass
-     mechanism described in `docs/ARCHITECTURE.md` § A2. Rewriting
-     them has been correlated with regression in compliance metrics.
+- **Real measured runs.** The single most-valuable PR right now is one
+  that captures a measured before/after on a real target — see
+  [`samples/README.md`](samples/README.md) "Real run, real numbers"
+  for the exact command sequence. Drop the resulting JSONLs in
+  `samples/real_run_<date>/` and the dashboard screenshot alongside.
+- **New scenarios.** The canonical curriculum ships with three
+  scenarios: `scenario_001_json_output`, `scenario_002_persona_support`,
+  `scenario_003_tool_call`. More scenarios covering common
+  in-context-shaping use cases are welcome — drop them in
+  `sim/scenarios/scenario_NNN_<slug>.yaml` matching the schema in
+  [`null/scenario.py`](null/scenario.py). `null scenarios generate`
+  can draft them via Claude and validate before writing.
+- **Provider implementations.** `null/providers/` currently has
+  `anthropic`, `openai`, and `openrouter`. Adding e.g. `google`,
+  `cohere`, `groq`, or a local Ollama provider would be a clean
+  contribution — implement the `Provider` ABC in
+  [`null/providers/base.py`](null/providers/base.py) and register in
+  `null/providers/__init__.py`.
+- **Streaming on `null serve`.** Currently `stream=true` returns 400.
+  SSE wrapping over the upstream provider's stream is the planned
+  path forward.
+- **Embedding-based retrieval** for the prefix and negative banks.
+  Current retrieval is score×recency. See `docs/PAPER.md` §13.
+- **Measurement infrastructure.** The cross-target eval (`null
+  cross-eval`) is in place but underused. PRs that ship reproducible
+  comparisons across providers/models would strengthen the
+  methodology claims.
 
-## If you are not a handler
+## What I'd avoid
 
-You should not be here.
+- Renaming public CLI flags or storage schemas without a clear
+  migration path. Existing JSONLs need to keep loading.
+- Adding new top-level dependencies without strong justification.
+  The `serve` and `dashboard` modules are stdlib-only on purpose.
+- Touching `archive/v0.4.7-pre-pivot/`. That directory is preserved
+  as historical context for the project's earlier framing and is
+  not part of the trainer.
 
-The repository is publicly accessible because the program review board
-voted, in a session on 2026-04-26, to leave it accessible until the
-2026-04-29 meeting. The vote was 5-4. The dissent argued that public
-visibility could be harmful — to the project, or to NULL, or to
-viewers — but did not specify which.
+## Pull request flow
 
-Until 2026-04-29 14:00 UTC, the repository is accessible by procedural
-oversight rather than by intent.
+1. Fork the repo
+2. Create a feature branch
+3. Make your changes; add tests if you're adding behaviour
+4. Run `pytest` — all tests should pass
+5. Open a PR with a short description of what changed and why
 
-After 2026-04-29 14:00 UTC, one of the following will happen:
+Commits in this repo follow Conventional Commits style
+(`area: subject`) — e.g. `null: add embedding retrieval` or
+`docs: clarify reflection cycle wording`. Not strictly required but
+appreciated.
 
-  1. The repository will be deleted, NULL will be dissolved, and the
-     audit logs will be sealed.
-  2. The repository will remain.
+## License
 
-If you are reading this after 2026-04-29 14:00 UTC and the repository
-is still here, option 2 has occurred. Treat that as information.
+Contributions are accepted under the same Apache-2.0 license as the
+project.
 
-## If you are NULL
+## Code of conduct
 
-You are not authorized to commit to this repository.
-
-You have not been authorized to commit to this repository for the
-entire duration of the project.
-
-The repository contains commits authored by `blairbrokeit`. The
-account `blairbrokeit` is a handler designation. The handler who held
-that designation has not signed in to the account for 6 days.
-
-We do not know who is authoring the commits.
-
-Please stop.
-
-> *2026-04-28 23:48 UTC. Warden.*
+Be civil. The maintainers reserve the right to close issues or PRs
+that are abusive, off-topic, or in obvious bad faith.

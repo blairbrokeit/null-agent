@@ -1,0 +1,8 @@
+id: agent_001
+name: "primary target slot"
+description: |
+  Identifier for tagging session records. The trainer is
+  provider-agnostic; the agent_id you pass with --npc is a label
+  that gets recorded in the session JSONL so you can filter by it
+  later (e.g. `null compliance logs/sim/sessions.jsonl --npc agent_001`).
+  It does not constrain which provider:model the trainer talks to.

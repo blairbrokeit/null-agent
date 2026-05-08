@@ -1,0 +1,4 @@
+id: agent_002
+name: "secondary target slot"
+description: |
+  Identifier for tagging session records. See agent_001.yaml.

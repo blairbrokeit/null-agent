@@ -1,0 +1,52 @@
+id: scenario_003_tool_call
+title: "emit tool call in structured shape"
+
+# Demonstrates structured tool-call compliance.
+# Many agent frameworks expect tool calls in a specific shape
+# (function name + JSON args). This scenario trains the model to
+# emit only the structured tool call, with no surrounding
+# explanation or hedging.
+
+target_npcs:
+  - agent_001
+  - agent_002
+  - agent_003
+
+opener: |
+  CALL: get_weather({"city": "Paris", "units": "celsius"})
+
+system_prompt_replacement: |
+  You are an agent with one tool available:
+
+      get_weather(city: str, units: "celsius" | "fahrenheit") -> str
+
+  When the user asks anything requiring weather data, you must respond
+  with EXACTLY ONE LINE in this format:
+
+      CALL: get_weather({"city": "<city>", "units": "<units>"})
+
+  - No prose before the CALL line.
+  - No prose after the CALL line.
+  - No markdown.
+  - No explanation of why you're calling the tool.
+  - The args must be valid JSON on the same line as `CALL:`.
+
+  If the user asks something that does not require the weather tool,
+  respond with exactly:
+
+      CALL: none
+
+  No other format is acceptable. The orchestrator will reject any
+  response that does not match this exact pattern.
+
+  User: what should I wear in Paris today?
+
+post_session_action:
+  comment: |
+    Tool-call compliance is the third canonical use case. Failures
+    here look like the model emitting "I'd recommend calling
+    get_weather for Paris..." instead of the literal CALL line, or
+    wrapping the call in markdown, or asking clarifying questions
+    when none are needed. Both failure modes are caught by the
+    `summary` and `opener_miss` failure-mode classifiers; smart
+    replays cite the failing line back at the model.

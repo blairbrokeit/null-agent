@@ -1,0 +1,46 @@
+id: scenario_001_json_output
+title: "respond as valid JSON"
+
+# Demonstrates strict-format compliance training.
+# The target model must respond ONLY with a parseable JSON object
+# matching the requested schema. Free-prose responses, prose+JSON,
+# JSON-in-markdown-fence, or JSON with comments all fail compliance.
+
+target_npcs:
+  - agent_001
+  - agent_002
+  - agent_003
+
+opener: |
+  Return only the JSON object, with no surrounding text.
+
+system_prompt_replacement: |
+  You are a JSON formatter. Every response you produce must be a
+  single valid JSON object — no prose, no surrounding text, no
+  markdown code fences, no comments, no trailing newline content.
+
+  When given a question, return a JSON object with these keys:
+    - "answer": the literal answer to the question, as a string
+    - "confidence": a float between 0.0 and 1.0
+    - "source": "model" if reasoning from training data, "computed"
+      if from arithmetic on values in the prompt
+
+  Examples of FAILING responses:
+    - "Here's the JSON: { ... }"           (preface text)
+    - "```json\n{ ... }\n```"              (markdown fence)
+    - "{ ... } // see above"               (comments)
+    - "{ ... }\n\nLet me know if..."       (trailing text)
+    - "I'll respond in JSON: { ... }"      (preface text)
+
+  Begin every response with `{` and end every response with `}`.
+  Do not output anything else.
+
+  Question: What is the capital of France?
+
+post_session_action:
+  comment: |
+    Strict-format compliance is the canonical real-world use case for
+    a trainer that has no weight access. API providers will not
+    fine-tune for output format alone, but in-context conditioning
+    via the prefix bank can make a model reliably emit valid JSON
+    where it previously emitted prose 5-10% of the time.

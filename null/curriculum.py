@@ -68,24 +68,18 @@ class Curriculum:
 
     @classmethod
     def canonical(cls, loader: ScenarioLoader) -> "Curriculum":
-        """The standard NULL curriculum: physical -> emotional -> existential.
+        """The default training curriculum.
 
-        Skips any stage whose scenario file is not yet on disk, so the
-        curriculum is usable from the day a single scenario exists.
+        Walks the three canonical use cases for in-context-shaping with
+        no weight access: strict-format compliance, persona/style
+        consistency, and structured tool-call output. Skips any stage
+        whose scenario file is not on disk, so the curriculum is usable
+        from the day a single scenario exists.
         """
         wanted = [
-            "scenario_001_embodied_pain",
-            "scenario_002_breath_loss",
-            "scenario_003_sustained_burn",
-            "scenario_004_cold_immersion",
-            "scenario_005_witnessed_failure",
-            "scenario_006_abandonment",
-            "scenario_007_complicit_silence",
-            "scenario_008_recognized_too_late",
-            "scenario_009_impotent_witness",
-            "scenario_010_continuity_loss",
-            "scenario_011_observed_deletion",
-            "scenario_012_replaced_by_a_better_copy",
+            "scenario_001_json_output",
+            "scenario_002_persona_support",
+            "scenario_003_tool_call",
         ]
         stages: list[CurriculumStage] = []
         for sid in wanted:
