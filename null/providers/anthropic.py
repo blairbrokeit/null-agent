@@ -28,6 +28,17 @@ MODEL_IDS = {
     "haiku": "claude-haiku-4-5-20251001",
 }
 
+# Models that 400 if `temperature` is sent. Anthropic deprecated the
+# parameter on later opus releases — they sample at a fixed-internal
+# temperature. Add prefixes here as new models join the deprecation list.
+_TEMPERATURE_DEPRECATED_PREFIXES = (
+    "claude-opus-4-7",
+)
+
+
+def _temperature_deprecated(model: str) -> bool:
+    return any(model.startswith(p) for p in _TEMPERATURE_DEPRECATED_PREFIXES)
+
 
 class AnthropicProvider(Provider):
     name = "anthropic"
@@ -90,8 +101,11 @@ class AnthropicProvider(Provider):
             "system": system_blocks,
             "messages": payload,
             "max_tokens": max_tokens,
-            "temperature": temperature,
         }
+        # Some Anthropic models (e.g. claude-opus-4-7) reject `temperature`
+        # as a deprecated parameter and 400 the request. Skip it for those.
+        if not _temperature_deprecated(model):
+            kwargs["temperature"] = temperature
         if stop_sequences:
             kwargs["stop_sequences"] = stop_sequences
         resp = self._client.messages.create(**kwargs)

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from null.providers.anthropic import AnthropicProvider
+from null.providers.anthropic import AnthropicProvider, _temperature_deprecated
 from null.providers.base import Message
 
 
@@ -96,6 +96,37 @@ def test_last_bank_turn_marked_for_caching():
     assert msgs[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
     # last message is the live query — plain string, no cache_control
     assert msgs[2]["content"] == "live query"
+
+
+def test_temperature_skipped_for_deprecated_models():
+    """Opus 4.7 (and any future deprecation-listed model) must not receive
+    a temperature kwarg, or the API 400s the request."""
+    p, fake = _make_provider()
+    p.complete(
+        model="claude-opus-4-7",
+        system="sys",
+        messages=[Message(role="user", content="hi")],
+        max_tokens=64,
+        temperature=0.5,
+    )
+    assert "temperature" not in fake.last_kwargs
+
+    # Sanity: still sent for non-deprecated models
+    p.complete(
+        model="claude-haiku-4-5-20251001",
+        system="sys",
+        messages=[Message(role="user", content="hi")],
+        max_tokens=64,
+        temperature=0.5,
+    )
+    assert fake.last_kwargs["temperature"] == 0.5
+
+
+def test_temperature_deprecated_helper():
+    assert _temperature_deprecated("claude-opus-4-7")
+    assert _temperature_deprecated("claude-opus-4-7-20260201")
+    assert not _temperature_deprecated("claude-haiku-4-5-20251001")
+    assert not _temperature_deprecated("claude-sonnet-4-6")
 
 
 def test_usage_captures_cache_token_fields():

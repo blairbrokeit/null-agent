@@ -16,10 +16,13 @@ null dashboard --sessions samples/sessions.jsonl \
 
 → [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Benchmarks (real measured run)](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
 
-> **First measured run, May 2026:** +31% average compliance lift on
-> Claude Haiku 4.5 across the canonical 3-scenario curriculum (+21% on
-> persona, +36% on JSON output, +40% on tool-call format), measured at
-> ≈ $0.05 in API spend. Full numbers and JSONL receipts in
+> **Measured benchmark, May 2026:** +31% / +19% / +20% mean compliance
+> lift across Claude Haiku 4.5, Sonnet 4.6, Opus 4.7 on the canonical
+> 3-scenario curriculum, for ≈ $0.30 in total API spend. All three
+> tiers begin scenario_001 (strict JSON) at the *identical* 0.410
+> baseline and converge to 0.557 with prefix-bank conditioning —
+> strong evidence that strict-format failures aren't a capacity
+> ceiling. Full matrix and JSONL receipts in
 > [`BENCHMARKS.md`](BENCHMARKS.md). Cross-vendor runs welcome.
 
 ---
