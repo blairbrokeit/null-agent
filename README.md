@@ -39,7 +39,7 @@ It's used for three canonical real-world problems:
 - **Persona / style consistency** — chatbot stays in voice, brand alignment under adversarial prompts
 - **Refusal calibration** — model declines or complies appropriately for your domain
 
-**Jump to:** [Install](#install-three-commands) · [First commands](#first-commands) · [Cycle architecture](#cycle-architecture) · [Capabilities](#capabilities) · [Deploy as OpenAI endpoint](#deploy-the-trained-target-as-an-openai-compatible-endpoint-null-serve) · [Persistent training](#persistent-training-across-sessions---prefix-bank) · [Composes with liminal](#composes-with-liminal-ai-training) · [Layout](#layout)
+**Jump to:** [Install](#install-three-commands) · [First commands](#first-commands) · [Cycle architecture](#cycle-architecture) · [Capabilities](#capabilities) · [Deploy as OpenAI endpoint](#deploy-the-trained-target-as-an-openai-compatible-endpoint-null-serve) · [Persistent training](#persistent-training-across-sessions---prefix-bank) · [Funded by NULL token](#funded-by-the-null-token-247-training-loop) · [Composes with liminal](#composes-with-liminal-ai-training) · [Layout](#layout)
 
 ## Install (three commands)
 
@@ -223,6 +223,89 @@ The bank is the missing piece that makes API-only targets *durably trainable* ac
 
 See [`docs/TRAINING.md`](docs/TRAINING.md) for protocol detail. See [`docs/PAPER.md`](docs/PAPER.md) for the methodology with citations.
 
+## Funded by the NULL token: 24/7 training loop
+
+The project has a memecoin (`$NULL` on Solana, launched on
+[pump.fun](https://pump.fun)). It is **not infrastructure**, **not
+required to use any feature in this repo**, and **not a security**. It
+exists for one functional reason: pump.fun creator-rewards from token
+trading volume flow into a public treasury wallet, that treasury funds
+API credits at Anthropic / OpenAI / etc, and a long-running daemon
+(`null daemon`) spends those credits on continuous benchmark and
+training runs whose results post automatically to this repo.
+
+Everything is auditable end-to-end:
+
+```
+trades on pump.fun
+    ↓ (creator-rewards, on-chain, public)
+treasury wallet  ──────  see treasury.yaml for the address
+    ↓ (cashed out + funds API account, manual until off-ramp automated)
+API credit balance at Anthropic / OpenAI
+    ↓ (spent by `null daemon` within --budget-usd cap)
+benchmark + training cycles
+    ↓ (auto-committed, --auto-commit on by default)
+samples/daemon_runs/<date>/ in this repo
+    ↓ (every JSONL is a receipt — no hidden runs)
+public benchmark results in BENCHMARKS.md
+```
+
+The trust model: there is no separate wallet, no hidden treasury, no
+"team allocation" of unspent funds. If it isn't in
+[`treasury.yaml`](treasury.yaml), it isn't part of the project's
+economics. Anyone can:
+
+1. Read [`treasury.yaml`](treasury.yaml) for the wallet address + policy
+2. Verify inflows on Solscan against pump.fun creator-rewards records
+3. Verify outflows in `samples/daemon_runs/<date>/` against the JSONL
+   receipts in this repo
+4. Run `null daemon` themselves with their own API key and budget cap
+
+### Running the daemon
+
+```bash
+# Spend up to $5 of your own API credits on rotating benchmarks across
+# Haiku and Sonnet, picking a (target, scenario) pair every 30 minutes.
+null daemon \
+  --rotation "anthropic:claude-haiku-4-5-20251001,anthropic:claude-sonnet-4-6" \
+  --budget-usd 5.00 \
+  --interval-seconds 1800 \
+  --cycles-per-run 3 \
+  --auto-commit
+```
+
+The daemon halts when cumulative spend in the store crosses
+`--budget-usd`. Resume by re-running with the same `--store` after
+topping up the API account — it reads the existing records to recompute
+spend and continues.
+
+### What the project commits to with these funds
+
+Listed in [`treasury.yaml`](treasury.yaml) under `priorities`. Roughly:
+
+- Cross-vendor benchmark coverage (OpenAI, Mistral, Llama via OpenRouter)
+- Standard-benchmark integration (IFEval, BFCL)
+- Replication runs with mean ± std
+- Scenarios that actually exercise retrieval lift (an open methodology gap)
+- Cross-vendor semantic judge runs (judge ≠ target family)
+
+### What the project does NOT do with these funds
+
+- No team salaries (this is a side project; no payroll)
+- No paid promotion of the token (no KOL deals, no influencer pumps)
+- No buybacks of the token from market makers (the project doesn't trade its own coin)
+- No private benchmarks held back from the repo (every run goes to git)
+
+The honest tradeoff: until automated fiat off-ramp (Helio / Coinflow /
+similar) is wired up, the cash-out + API-top-up step is manual. That
+means the daemon runs in chunks, halts when its budget is spent, and
+resumes after the next top-up. Slow-feedback but completely
+transparent — and the entire treasury → spend → output → repo loop is
+auditable from a single page (this README plus
+[`treasury.yaml`](treasury.yaml)).
+
+---
+
 ## Composes with liminal-ai-training
 
 `null` composes with [`blairbrokeit/liminal-ai-training`](https://github.com/blairbrokeit/liminal-ai-training), a DPO LoRA trainer for fine-tunable models. The closed loop:
@@ -250,12 +333,14 @@ null train target B (in-context, no weights)
 ├── INSTALL.md                  install + first commands + troubleshooting
 ├── LICENSE                     Apache-2.0
 ├── CONTRIBUTING.md             how to contribute
+├── BENCHMARKS.md               measured runs (real Anthropic API, JSONL receipts)
+├── treasury.yaml               public NULL token treasury wallet + funding policy
 ├── pyproject.toml              python package metadata
 ├── requirements.txt            same, for pip
 │
 ├── null/                       installable trainer package
 │   ├── trainer.py              P-3 cycle loop
-│   ├── cli.py                  console entry: train / evaluate / cross-eval / serve / bank / negative-bank / bridge / dashboard / scenarios
+│   ├── cli.py                  console entry: train / evaluate / cross-eval / serve / bank / negative-bank / bridge / dashboard / scenarios / daemon
 │   ├── compliance.py           4-axis compliance scoring (with optional semantic blend)
 │   ├── failure_mode.py         8-mode classifier + per-mode replay templates
 │   ├── semantic_judge.py       LLM-as-judge for in-frame semantic compliance

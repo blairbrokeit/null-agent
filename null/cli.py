@@ -1328,5 +1328,252 @@ def bridge_dpo_pairs(
     click.echo(f"wrote {n} pairs to {jsonl_out}")
 
 
+# ---- daemon ---------------------------------------------------------
+#
+# `null daemon` runs continuous training cycles against a budget cap.
+# Designed to be the runtime that the public NULL token treasury funds:
+# treasury fees (collected via pump.fun creator-rewards) buy API credits,
+# the daemon spends those credits on rotating benchmark + train cycles,
+# and every run posts results to the public repo. See `treasury.yaml`
+# at the repo root for the wallet address and policy.
+
+@main.command("daemon")
+@click.option(
+    "--rotation",
+    default="anthropic:claude-haiku-4-5-20251001",
+    show_default=True,
+    help="comma-separated list of provider:model targets to rotate through.",
+)
+@click.option(
+    "--scenario-pool",
+    "scenario_pool",
+    default=None,
+    help="comma-separated scenario ids to rotate through. defaults to the canonical curriculum.",
+)
+@click.option(
+    "--budget-usd",
+    "budget_usd",
+    required=True,
+    type=float,
+    help="hard cap on cumulative API spend in this store. daemon halts once exceeded.",
+)
+@click.option(
+    "--interval-seconds",
+    "interval_seconds",
+    default=1800,
+    show_default=True,
+    type=int,
+    help="seconds between cycles. set 0 for back-to-back runs.",
+)
+@click.option(
+    "--max-cycles",
+    "max_cycles",
+    default=None,
+    type=int,
+    help="halt after this many cycles even if budget remains. omit to run until budget exhausted.",
+)
+@click.option(
+    "--cycles-per-run",
+    "cycles_per_run",
+    default=3,
+    show_default=True,
+    type=int,
+    help="train cycles per (target, scenario) pick.",
+)
+@click.option(
+    "--scenario-dir",
+    "scenario_dir",
+    default=DEFAULT_SCENARIO_DIR,
+    show_default=True,
+    type=click.Path(file_okay=False, path_type=Path),
+)
+@click.option(
+    "--store",
+    "store_path",
+    default=Path("logs/sim/daemon.jsonl"),
+    show_default=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--prefix-bank",
+    "prefix_bank_path",
+    default=Path("logs/sim/prefix_bank.jsonl"),
+    show_default=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="bank used + grown by daemon runs. shared across all targets.",
+)
+@click.option(
+    "--prefix-top-k", "prefix_top_k", default=3, show_default=True, type=int,
+)
+@click.option(
+    "--prefix-min-score", "prefix_min_score", default=0.85, show_default=True, type=float,
+)
+@click.option(
+    "--npc",
+    "npc_id",
+    default="agent_001",
+    show_default=True,
+)
+@click.option(
+    "--auto-commit/--no-auto-commit",
+    default=True,
+    show_default=True,
+    help="git add + commit results after each cycle.",
+)
+@click.option(
+    "--auto-push/--no-auto-push",
+    default=False,
+    show_default=True,
+    help="git push after commit. requires git credentials configured for non-interactive use.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="use the offline echo provider — no API calls, no spend. for end-to-end test only.",
+)
+def daemon_cmd(
+    rotation: str,
+    scenario_pool: Optional[str],
+    budget_usd: float,
+    interval_seconds: int,
+    max_cycles: Optional[int],
+    cycles_per_run: int,
+    scenario_dir: Path,
+    store_path: Path,
+    prefix_bank_path: Path,
+    prefix_top_k: int,
+    prefix_min_score: float,
+    npc_id: str,
+    auto_commit: bool,
+    auto_push: bool,
+    dry_run: bool,
+) -> None:
+    """Run continuous training cycles within a budget cap.
+
+    Designed to be the long-running runtime funded by the NULL token
+    treasury (see treasury.yaml). Picks a (target, scenario) pair from
+    the rotation each tick, runs `--cycles-per-run` cycles, appends
+    results to the store, optionally commits + pushes, then sleeps.
+    Halts when cumulative spend in the store crosses `--budget-usd`.
+
+    Resume: just re-run with the same `--store`. The daemon reads
+    existing records to recompute spent so far and continues from there.
+    """
+    import subprocess
+    import time as _time
+
+    targets = [t.strip() for t in rotation.split(",") if t.strip()]
+    if not targets:
+        raise click.UsageError("--rotation is empty")
+
+    loader = ScenarioLoader(scenario_dir)
+    if scenario_pool:
+        scenarios = [s.strip() for s in scenario_pool.split(",") if s.strip()]
+    else:
+        scenarios = [st.scenario.id for st in Curriculum.canonical(loader)]
+
+    if not scenarios:
+        raise click.UsageError("scenario pool resolved to empty")
+
+    pairs = [(t, s) for t in targets for s in scenarios]
+    click.echo(f"daemon: rotation has {len(pairs)} (target, scenario) pairs")
+    click.echo(f"daemon: budget cap ${budget_usd:.2f}; store {store_path}")
+
+    store = JsonlSessionStore(store_path)
+    spent = _store_spend_usd(store)
+    click.echo(f"daemon: spent so far in this store: ${spent:.4f}")
+
+    cycles_done = 0
+    pair_idx = 0
+    while True:
+        if spent >= budget_usd:
+            click.echo(f"daemon: budget exhausted (${spent:.4f} >= ${budget_usd:.2f}); halting")
+            break
+        if max_cycles is not None and cycles_done >= max_cycles:
+            click.echo(f"daemon: hit --max-cycles={max_cycles}; halting")
+            break
+
+        target, scenario_id = pairs[pair_idx % len(pairs)]
+        pair_idx += 1
+        click.echo(f"\ndaemon: cycle {cycles_done + 1}: {target} x {scenario_id}")
+
+        try:
+            scenario = loader.get(scenario_id)
+        except Exception as e:
+            click.echo(f"daemon: failed to load scenario {scenario_id}: {e}; skipping")
+            continue
+
+        try:
+            provider, model = _resolve_provider(target, dry_run=dry_run)
+        except Exception as e:
+            click.echo(f"daemon: failed to resolve provider {target}: {e}; skipping")
+            continue
+
+        prefix_bank = JsonlPrefixBank(prefix_bank_path)
+        config = P3Config(
+            actually_sleep=False,
+            prefix_bank=prefix_bank,
+            prefix_top_k=prefix_top_k,
+            prefix_min_score=prefix_min_score,
+        )
+        trainer = Trainer(provider=provider, model=model, store=store, config=config)
+
+        try:
+            report = trainer.run_scenario(
+                scenario=scenario,
+                target_npc=npc_id,
+                cycles=cycles_per_run,
+            )
+            click.echo(
+                f"daemon: {scenario_id} on {target}: "
+                f"best={report.best_score:.3f} last={report.last_score:.3f} advanced={report.advanced}"
+            )
+        except Exception as e:
+            click.echo(f"daemon: cycle failed: {e}")
+
+        cycles_done += 1
+        new_spent = _store_spend_usd(store)
+        delta = new_spent - spent
+        spent = new_spent
+        click.echo(f"daemon: this cycle spent ~${delta:.4f}; total ${spent:.4f} / ${budget_usd:.2f}")
+
+        if auto_commit:
+            try:
+                subprocess.run(["git", "add", str(store_path), str(prefix_bank_path)],
+                               check=True, capture_output=True)
+                msg = (
+                    f"daemon: {target.split(':')[-1]} x {scenario_id} "
+                    f"(best={report.best_score:.3f}, spent_total=${spent:.4f})"
+                )
+                subprocess.run(
+                    ["git", "commit", "-m", msg, "--allow-empty"],
+                    check=True, capture_output=True,
+                )
+                click.echo(f"daemon: committed: {msg}")
+            except subprocess.CalledProcessError as e:
+                click.echo(f"daemon: git commit failed: {e.stderr.decode(errors='replace')[:200]}")
+
+        if auto_push:
+            try:
+                subprocess.run(["git", "push"], check=True, capture_output=True, timeout=60)
+                click.echo("daemon: pushed")
+            except subprocess.CalledProcessError as e:
+                click.echo(f"daemon: git push failed: {e.stderr.decode(errors='replace')[:200]}")
+            except subprocess.TimeoutExpired:
+                click.echo("daemon: git push timed out (credential helper hang?); continuing")
+
+        if interval_seconds > 0 and spent < budget_usd:
+            click.echo(f"daemon: sleeping {interval_seconds}s")
+            _time.sleep(interval_seconds)
+
+    click.echo(f"\ndaemon: done. cycles_run={cycles_done}, total_spent=${spent:.4f}")
+
+
+def _store_spend_usd(store: JsonlSessionStore) -> float:
+    """Sum estimated_usd across all records in the store (priced models only)."""
+    rows = null_cost.summarize(list(store))
+    return sum((r.estimated_usd or 0.0) for r in rows)
+
+
 if __name__ == "__main__":  # pragma: no cover
     main()
