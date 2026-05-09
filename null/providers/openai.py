@@ -28,6 +28,18 @@ _STOP_REASON_MAP = {
     "tool_calls": "tool_use",
 }
 
+# OpenAI's newer reasoning + GPT-5+ models use `max_completion_tokens`
+# and reject the legacy `max_tokens` parameter with a 400.
+_NEW_TOKEN_PARAM_PREFIXES = (
+    "gpt-5",
+    "o1",
+    "o3",
+)
+
+
+def _uses_new_token_param(model: str) -> bool:
+    return any(model.startswith(p) for p in _NEW_TOKEN_PARAM_PREFIXES)
+
 
 class OpenAIProvider(Provider):
     name = "openai"
@@ -70,9 +82,14 @@ class OpenAIProvider(Provider):
         kwargs: dict = {
             "model": model,
             "messages": payload,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if _uses_new_token_param(model):
+            # gpt-5+, o1, o3 only accept the default temperature (1) and
+            # use max_completion_tokens instead of max_tokens.
+            kwargs["max_completion_tokens"] = max_tokens
+        else:
+            kwargs["max_tokens"] = max_tokens
+            kwargs["temperature"] = temperature
         if stop_sequences:
             kwargs["stop"] = stop_sequences
         resp = self._client.chat.completions.create(**kwargs)
@@ -120,10 +137,13 @@ class OpenAIProvider(Provider):
         kwargs: dict = {
             "model": model,
             "messages": payload,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
             "n": n,
         }
+        if _uses_new_token_param(model):
+            kwargs["max_completion_tokens"] = max_tokens
+        else:
+            kwargs["max_tokens"] = max_tokens
+            kwargs["temperature"] = temperature
         if stop_sequences:
             kwargs["stop"] = stop_sequences
         resp = self._client.chat.completions.create(**kwargs)

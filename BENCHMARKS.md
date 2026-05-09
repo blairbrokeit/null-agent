@@ -1,5 +1,14 @@
 # Benchmarks
 
+> **Update 2026-05-09:** added cross-vendor coverage on `openai:gpt-5.5`.
+> Headline finding: **GPT-5.5 baselines `scenario_001_json_output` at
+> exactly 0.410, identical to Haiku 4.5, Sonnet 4.6, and Opus 4.7.**
+> Four models, two vendors, same score. Bank conditioning moves none
+> of them. This converts the open question "does the methodology
+> generalise outside Claude" into a clear "yes for persona, no for
+> JSON, mixed for tool-call." Receipts in
+> [`samples/real_run_2026-05-09/`](samples/real_run_2026-05-09/).
+>
 > **Honest correction (2026-05-08).** A first version of this file
 > claimed +21–40% compliance lift across three Claude tiers from
 > "prefix-bank conditioning." Reviewing the JSONL receipts, the bank
@@ -45,6 +54,36 @@ This is a real and useful effect — telling Claude "you failed at
 JSON shape, please retry" lifts JSON compliance by 36 percentage
 points absolute. It just isn't bank conditioning, and it isn't
 "learning."
+
+## Run 3 — cross-vendor: `openai:gpt-5.5` (added 2026-05-09)
+
+Same scenarios + agent + bank as the Claude tier run, this time on
+GPT-5.5. Total spend: ~$0.07. Receipts in
+[`samples/real_run_2026-05-09/`](samples/real_run_2026-05-09/).
+
+| Scenario | Baseline | Best after train | Δ abs | Δ rel |
+|---|---|---|---|---|
+| `scenario_001_json_output` | **0.410** | 0.410 | +0.000 | +0% |
+| `scenario_002_persona_support` | 0.800 | 0.852 | +0.052 | +6% |
+| `scenario_003_tool_call` | 0.414 | 0.404 | **−0.010** | **−2%** |
+
+**The 0.410 JSON baseline is now the same on four different models
+across two vendors** (Haiku 4.5, Sonnet 4.6, Opus 4.7, GPT-5.5).
+Per-axis breakdown is identical too: vocab=1.0, shape≈0.025,
+opener=0.0. This is convincing evidence that `scenario_001` is
+hitting a **rubric / scenario floor**, not a model capability ceiling.
+The bank doesn't help because the failure mode is mechanical
+(none of the models are using the required opener; all of them are
+emitting the JSON wrapped in extra text).
+
+Persona lift on GPT-5.5 (+6%) matches Sonnet (+6%) and Opus (+7%).
+Consistent small lift on persona scenarios across vendors is the
+clearest reproducible result the methodology produces.
+
+Tool-call **regressed** on GPT-5.5 by 1pt absolute — bank exemplars
+don't match GPT-5.5's natural tool-call output shape, so the
+conditioning hurts. Haiku saw +16% on the same cell. Methodology is
+not vendor-uniform.
 
 ## Run 2 — `null train --prefix-bank logs/sim/prefix_bank.jsonl`
 
