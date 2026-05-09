@@ -1390,17 +1390,17 @@ def bridge_dpo_pairs(
 @click.option(
     "--store",
     "store_path",
-    default=Path("logs/sim/daemon.jsonl"),
-    show_default=True,
+    default=None,
     type=click.Path(dir_okay=False, path_type=Path),
+    help="session JSONL path. defaults to samples/daemon_runs/<UTC date>/sessions.jsonl so auto-commits land in a tracked path.",
 )
 @click.option(
     "--prefix-bank",
     "prefix_bank_path",
-    default=Path("logs/sim/prefix_bank.jsonl"),
+    default=Path("samples/prefix_bank.jsonl"),
     show_default=True,
     type=click.Path(dir_okay=False, path_type=Path),
-    help="bank used + grown by daemon runs. shared across all targets.",
+    help="bank used + grown by daemon runs. shared across all targets. defaults to the in-repo bank so growth is tracked + auto-committed.",
 )
 @click.option(
     "--prefix-top-k", "prefix_top_k", default=3, show_default=True, type=int,
@@ -1459,8 +1459,13 @@ def daemon_cmd(
     Resume: just re-run with the same `--store`. The daemon reads
     existing records to recompute spent so far and continues from there.
     """
+    import datetime as _dt
     import subprocess
     import time as _time
+
+    if store_path is None:
+        today = _dt.datetime.utcnow().strftime("%Y-%m-%d")
+        store_path = Path("samples/daemon_runs") / today / "sessions.jsonl"
 
     targets = [t.strip() for t in rotation.split(",") if t.strip()]
     if not targets:
