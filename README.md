@@ -225,14 +225,25 @@ See [`docs/TRAINING.md`](docs/TRAINING.md) for protocol detail. See [`docs/PAPER
 
 ## Funded by the NULL token: 24/7 training loop
 
-The project has a memecoin (`$NULL` on Solana, launched on
-[pump.fun](https://pump.fun)). It is **not infrastructure**, **not
-required to use any feature in this repo**, and **not a security**. It
-exists for one functional reason: pump.fun creator-rewards from token
-trading volume flow into a public treasury wallet, that treasury funds
-API credits at Anthropic / OpenAI / etc, and a long-running daemon
-(`null daemon`) spends those credits on continuous benchmark and
-training runs whose results post automatically to this repo.
+The project has a memecoin: **`$NULL` on Solana**.
+The official mint is `DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump`
+([pump.fun](https://pump.fun/coin/DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump)
+· [Solscan](https://solscan.io/token/DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump)).
+Any other "NULL" token on Solana is unaffiliated — always verify the
+mint string.
+
+It is **not infrastructure**, **not required to use any feature in
+this repo**, and **not a security**. It exists for one functional
+reason: pump.fun creator-rewards from token trading volume flow into a
+public treasury wallet, that treasury funds API credits at Anthropic /
+OpenAI / etc, and a long-running daemon (`null daemon`) spends those
+credits on continuous benchmark and training runs whose results post
+automatically to this repo.
+
+**Treasury wallet:** `84oKWWvA9ths3VZ8BTpynFaDZv7SFmq1omNpH7XTNULL`
+([Solscan](https://solscan.io/account/84oKWWvA9ths3VZ8BTpynFaDZv7SFmq1omNpH7XTNULL)).
+This is the only wallet the project draws from. See
+[`treasury.yaml`](treasury.yaml) for the full policy.
 
 Everything is auditable end-to-end:
 

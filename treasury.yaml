@@ -19,20 +19,26 @@ token:
   name: NULL
   network: solana
   launchpad: pump.fun
-  # Public token mint address — fill in after launch. Verifiable on
-  # https://pump.fun/<mint> and any Solana explorer.
-  mint: "<TOKEN_MINT_ADDRESS_HERE>"
-  # Pump.fun page for the token (provides price, holders, trade history).
-  pump_url: "https://pump.fun/<mint>"
+  # Public token mint address. Verifiable on Solana explorers and
+  # pump.fun. The "pump" suffix is standard for pump.fun mints.
+  mint: "DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump"
+  # Pump.fun page for the token (price, holders, trade history).
+  pump_url: "https://pump.fun/coin/DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump"
+  # Solscan link for the token mint, for auditing supply / holders / transfers.
+  explorer_url: "https://solscan.io/token/DKr4zK3gQLPAx1CkjhTpw3qSxEv265LrZWcxpKG9pump"
+  # The official $NULL is THIS mint. Any other "NULL" token on Solana
+  # is unaffiliated with this project. Always verify the mint string
+  # before trading.
+  notice: "the only official $NULL token mint is the one above. always verify."
 
 treasury:
   # Public wallet address that receives pump.fun creator-rewards on the
   # NULL token. This is the only wallet the project draws from.
   # Read-only here — the private key lives in the maintainer's secured
   # wallet (multisig recommended once balance is non-trivial).
-  wallet: "<TREASURY_WALLET_ADDRESS_HERE>"
+  wallet: "84oKWWvA9ths3VZ8BTpynFaDZv7SFmq1omNpH7XTNULL"
   # Solscan link for the wallet, for auditing inflows and outflows.
-  explorer_url: "https://solscan.io/account/<TREASURY_WALLET_ADDRESS_HERE>"
+  explorer_url: "https://solscan.io/account/84oKWWvA9ths3VZ8BTpynFaDZv7SFmq1omNpH7XTNULL"
   # Network where the wallet lives.
   network: solana
 
