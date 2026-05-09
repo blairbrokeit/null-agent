@@ -1,13 +1,22 @@
 # Benchmarks
 
-> **Update 2026-05-09:** added cross-vendor coverage on `openai:gpt-5.5`.
-> Headline finding: **GPT-5.5 baselines `scenario_001_json_output` at
-> exactly 0.410, identical to Haiku 4.5, Sonnet 4.6, and Opus 4.7.**
-> Four models, two vendors, same score. Bank conditioning moves none
-> of them. This converts the open question "does the methodology
-> generalise outside Claude" into a clear "yes for persona, no for
-> JSON, mixed for tool-call." Receipts in
-> [`samples/real_run_2026-05-09/`](samples/real_run_2026-05-09/).
+> **Update 2026-05-09 (part 2):** re-ran `openai:gpt-5.5` with the
+> semantic judge enabled (`--semantic-judge anthropic:claude-haiku-4-5-20251001`).
+> The earlier judge-off run scored every cell at ~0.41 because the
+> 0.20-weighted semantic axis was null. With the judge back on, the
+> baselines change and the methodology actually shows real lift on
+> the tool-call cell: **0.303 → 0.711 (+135% relative, +0.408 abs)**.
+> Per-cell: scenario_001 +4%, scenario_002 −7% (near-ceiling regression),
+> scenario_003 +135%. Mean absolute delta +0.124 (+44% relative).
+> The win is concentrated in scenario_003. Receipts in
+> [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/).
+>
+> **Update 2026-05-09 (part 1):** added cross-vendor coverage on
+> `openai:gpt-5.5` (judge off). Headline finding: **GPT-5.5 baselines
+> `scenario_001_json_output` at exactly 0.410, identical to Haiku 4.5,
+> Sonnet 4.6, and Opus 4.7.** Four models, two vendors, same score.
+> Without the semantic judge, bank conditioning moves none of them.
+> Receipts in [`samples/real_run_2026-05-09/`](samples/real_run_2026-05-09/).
 >
 > **Honest correction (2026-05-08).** A first version of this file
 > claimed +21–40% compliance lift across three Claude tiers from

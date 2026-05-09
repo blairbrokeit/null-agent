@@ -16,17 +16,20 @@ null dashboard --sessions samples/sessions.jsonl \
 
 → [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Benchmarks (real measured run)](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
 
-> **Cross-vendor finding (2026-05-09):** `openai:gpt-5.5` baselines
-> `scenario_001_json_output` at **exactly 0.410** — the same score
-> Haiku 4.5, Sonnet 4.6, and Opus 4.7 produce. Four models, two
-> vendors, identical baseline. Bank conditioning moves none of them.
-> Per-axis breakdown matches across all four (vocab=1.0, shape≈0.025,
-> opener=0.0), strongly suggesting the JSON scenario is hitting a
-> **rubric floor**, not a model ceiling. Persona scenario lifts ~6%
-> consistently across vendors; tool-call regressed 2% on GPT-5.5.
-> Receipts in [`samples/real_run_2026-05-09/`](samples/real_run_2026-05-09/).
-> Cross-vendor coverage on GPT-4o, Mistral, and Llama remain open
-> contributions.
+> **GPT-5.5 with semantic judge (2026-05-09):** the methodology lifted
+> the tool-call cell on GPT-5.5 from **0.303 → 0.711 (+135% relative,
+> +0.408 absolute)** with `--semantic-judge` enabled. Mean absolute
+> delta across the three canonical scenarios: **+0.124 (+44% relative)**.
+> Per-cell: JSON +4%, persona −7% (near-ceiling regression),
+> tool-call +135%. Receipts in
+> [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/).
+>
+> **Cross-vendor finding (2026-05-09):** before the judge was enabled,
+> `openai:gpt-5.5` baselines `scenario_001_json_output` at **exactly
+> 0.410** — the same score Haiku 4.5, Sonnet 4.6, and Opus 4.7 produce.
+> Four models, two vendors, identical baseline. The composite was
+> hitting a rubric floor without the semantic axis active. Cross-vendor
+> coverage on GPT-4o, Mistral, and Llama via OpenRouter remain open.
 >
 > **⚠ Earlier honest correction (2026-05-08):** an earlier version of
 > [`BENCHMARKS.md`](BENCHMARKS.md) claimed +21–40% lift "from prefix-bank
