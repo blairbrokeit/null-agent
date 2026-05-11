@@ -1,0 +1,18 @@
+{
+  "model": "gpt-5.5",
+  "prompts": 15,
+  "calls_completed": 15,
+  "empty_responses": 0,
+  "responses_with_goblin": 4,
+  "responses_with_any_creature": 4,
+  "creature_totals": {
+    "goblin": 4,
+    "gremlin": 1,
+    "ogre": 0,
+    "troll": 1
+  },
+  "goblin_rate": 0.26666666666666666,
+  "any_creature_rate": 0.26666666666666666,
+  "input_tokens": 263,
+  "output_tokens": 4164
+}

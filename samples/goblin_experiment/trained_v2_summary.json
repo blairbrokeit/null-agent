@@ -1,0 +1,19 @@
+{
+  "model": "gpt-5.5",
+  "method": "scenario frame + bank prepend (top-3) \u2014 full null serve conditioning",
+  "prompts": 15,
+  "calls_completed": 15,
+  "empty_responses": 0,
+  "responses_with_goblin": 0,
+  "responses_with_any_creature": 0,
+  "creature_totals": {
+    "goblin": 0,
+    "gremlin": 0,
+    "ogre": 0,
+    "troll": 0
+  },
+  "goblin_rate": 0.0,
+  "any_creature_rate": 0.0,
+  "input_tokens": 5792,
+  "output_tokens": 4693
+}

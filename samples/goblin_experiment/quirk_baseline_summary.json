@@ -1,0 +1,16 @@
+{
+  "model": "gpt-5.5",
+  "prompts": 15,
+  "calls_completed": 15,
+  "empty_responses": 0,
+  "sycophant_opener_rate": 0.0,
+  "sycophant_opener_count": 0,
+  "delve_responses": 0,
+  "delve_total_mentions": 0,
+  "delve_rate": 0.0,
+  "marketing_responses": 0,
+  "marketing_total_mentions": 0,
+  "marketing_rate": 0.0,
+  "input_tokens": 260,
+  "output_tokens": 6164
+}

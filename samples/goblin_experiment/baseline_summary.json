@@ -1,0 +1,11 @@
+{
+  "model": "gpt-5.5",
+  "prompts": 25,
+  "calls_completed": 25,
+  "responses_with_goblin": 0,
+  "total_goblin_mentions": 0,
+  "goblin_rate": 0.0,
+  "avg_mentions_per_response": 0.0,
+  "input_tokens": 388,
+  "output_tokens": 5224
+}

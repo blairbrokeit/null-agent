@@ -1,0 +1,19 @@
+{
+  "model": "gpt-5.5",
+  "method": "null-style bank conditioning (top-3 exemplars prepended)",
+  "prompts": 15,
+  "calls_completed": 15,
+  "empty_responses": 0,
+  "responses_with_goblin": 4,
+  "responses_with_any_creature": 5,
+  "creature_totals": {
+    "goblin": 5,
+    "gremlin": 1,
+    "ogre": 1,
+    "troll": 3
+  },
+  "goblin_rate": 0.26666666666666666,
+  "any_creature_rate": 0.3333333333333333,
+  "input_tokens": 4487,
+  "output_tokens": 3572
+}
