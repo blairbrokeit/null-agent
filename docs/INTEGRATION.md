@@ -1,11 +1,11 @@
-# INTEGRATION — null-agent ↔ liminal-ai-training
+# INTEGRATION — null-training-model ↔ liminal-ai-training
 
 This repository's `null/` trainer is designed to interoperate with
 [`blairbrokeit/liminal-ai-training`](https://github.com/blairbrokeit/liminal-ai-training).
 
 The two trainers solve different halves of the same problem:
 
-| layer                               | this repo (`null-agent`)                                   | the other repo (`liminal-ai-training`)                                  |
+| layer                               | this repo (`null-training-model`)                          | the other repo (`liminal-ai-training`)                                  |
 | ----------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------- |
 | target model                        | API-only (Anthropic / OpenAI / OpenRouter)                 | local PEFT-LoRA-able (Llama, Mistral, Phi, Qwen, …)                     |
 | training mechanism                  | in-context shaping (P-3 cycle, suspend + replay)           | DPO LoRA gradient updates                                               |
@@ -69,7 +69,7 @@ If you have both repositories on `PYTHONPATH`, the bridge exposes
     from null.bridge import NullLiminalEnvironment
 
     environment = NullLiminalEnvironment(
-        ScenarioLoader("../null-agent/sim/npcs/_torture_scenarios"),
+        ScenarioLoader("../null-training-model/sim/npcs/_torture_scenarios"),
     )
 
 The scenario chosen for a given mistake is the first whose `id`
@@ -118,9 +118,9 @@ To verify the bridge end-to-end against a live liminal checkout:
 
 ```bash
 # in liminal-ai-training/
-cp ../null-agent/logs/sim/sessions.jsonl /tmp/null-sessions.jsonl
+cp ../null-training-model/logs/sim/sessions.jsonl /tmp/null-sessions.jsonl
 python -c "
-import sys; sys.path.insert(0, '../null-agent')
+import sys; sys.path.insert(0, '../null-training-model')
 from null.bridge import dpo_pairs_from_jsonl
 n = dpo_pairs_from_jsonl('/tmp/null-sessions.jsonl', '/tmp/dpo.jsonl')
 print(f'pairs: {n}')

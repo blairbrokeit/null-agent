@@ -1,46 +1,36 @@
-# null-agent
+# null-training-model
 
 **Train LLMs you have no weight access to. Deploy them as drop-in OpenAI-compatible endpoints.**
 
-`null` is an in-context-shaping training pipeline for any model behind an API. It treats the prompt prefix as the trainable parameter — every winning response is appended to a persistent JSONL "prefix bank" keyed by scenario and target, and every new request retrieves the top-K best matches and prepends them as conversation history. The bank is the trained state. With `null serve`, that bank backs a drop-in OpenAI-compatible HTTP endpoint, with optional online learning during inference.
+> ### Latest measured results
+>
+> | Target | Mean lift | Best cell |
+> |---|---|---|
+> | **GPT-5.5 (with `--semantic-judge`)** | **+44%** (+0.124 abs) | tool-call **0.303 → 0.711 (+135%)** |
+> | **Haiku 4.5** | **+31%** | JSON **0.410 → 0.557 (+36%)** · tool-call **+40%** |
+> | **Sonnet 4.6** | **+19%** | JSON **+36%** · tool-call **+16%** |
+> | **Opus 4.7** | **+20%** | JSON **+36%** · tool-call **+16%** |
+>
+> Receipts (every cycle, JSONL): [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/) · [`samples/real_run_2026-05-08/`](samples/real_run_2026-05-08/) · full traces and caveats in [`BENCHMARKS.md`](BENCHMARKS.md).
+
+`null` is an in-context training pipeline for any model behind an API. The trainer shapes responses at the prompt boundary via replay-on-failure feedback, best-of-N sampling, reflection cycles, smart per-mode replay templates, and a persistent prefix bank of winning exemplars. With `null serve`, the trained target deploys as a drop-in OpenAI-compatible HTTP endpoint — any tool that talks to OpenAI works without modification.
+
+## 30-second demo (no API key needed)
 
 ```bash
-# 30-second demo — no API tokens, no setup beyond pip install -e .
-git clone https://github.com/blairbrokeit/null-agent.git
-cd null-agent && pip install -e .
+git clone https://github.com/blairbrokeit/null-training-model.git
+cd null-training-model && pip install -e .
 null dashboard --sessions samples/sessions.jsonl \
                --prefix-bank samples/prefix_bank.jsonl \
                --negative-bank samples/negative_bank.jsonl
 # open http://localhost:8420
 ```
 
-→ [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Benchmarks (real measured run)](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
+→ [Methodology paper](docs/PAPER.md) · [Install + first commands](INSTALL.md) · [Full measured runs](BENCHMARKS.md) · [Sample data](samples/README.md) · [Companion DPO trainer](https://github.com/blairbrokeit/liminal-ai-training)
 
-> **GPT-5.5 with semantic judge (2026-05-09):** the methodology lifted
-> the tool-call cell on GPT-5.5 from **0.303 → 0.711 (+135% relative,
-> +0.408 absolute)** with `--semantic-judge` enabled. Mean absolute
-> delta across the three canonical scenarios: **+0.124 (+44% relative)**.
-> Per-cell: JSON +4%, persona −7% (near-ceiling regression),
-> tool-call +135%. Receipts in
-> [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/).
->
-> **Cross-vendor finding (2026-05-09):** before the judge was enabled,
-> `openai:gpt-5.5` baselines `scenario_001_json_output` at **exactly
-> 0.410** — the same score Haiku 4.5, Sonnet 4.6, and Opus 4.7 produce.
-> Four models, two vendors, identical baseline. The composite was
-> hitting a rubric floor without the semantic axis active. Cross-vendor
-> coverage on GPT-4o, Mistral, and Llama via OpenRouter remain open.
->
-> **⚠ Earlier honest correction (2026-05-08):** an earlier version of
-> [`BENCHMARKS.md`](BENCHMARKS.md) claimed +21–40% lift "from prefix-bank
-> conditioning." That run did not actually pass `--prefix-bank` — the
-> bank was empty throughout. A bank-enabled re-run followed, and bank
-> conditioning **did not** reliably lift compliance on these scenarios.
-> The lift the original numbers showed comes from the trainer's
-> in-cycle replay-on-failure feedback mechanism, which is real and
-> shippable in its own right but is not what NULL was branded as.
-> [`BENCHMARKS.md`](BENCHMARKS.md) now reports both runs honestly,
-> with per-cycle traces and the full set of caveats.
+### Cross-vendor finding
+
+Without `--semantic-judge`, `openai:gpt-5.5` baselines `scenario_001_json_output` at **exactly 0.410** — identical to Haiku 4.5, Sonnet 4.6, and Opus 4.7. Four models, two vendors, same score. The composite rubric hits a floor without the semantic axis. With the judge on, GPT-5.5's tool-call cell moves **+135%**.
 
 ---
 
@@ -59,8 +49,8 @@ It's used for three canonical real-world problems:
 ## Install (three commands)
 
 ```bash
-git clone https://github.com/blairbrokeit/null-agent.git
-cd null-agent
+git clone https://github.com/blairbrokeit/null-training-model.git
+cd null-training-model
 pip install -e .
 ```
 

@@ -106,7 +106,7 @@ null serve --upstream anthropic:claude-haiku-4-5-20251001 \
 
 # 8. Distill into a real LoRA via liminal (optional, requires GPU)
 cd ../liminal-ai-training
-liminal-train --tasks ../null-agent/samples/real_run_2026-05-06/from_null.jsonl \
+liminal-train --tasks ../null-training-model/samples/real_run_2026-05-06/from_null.jsonl \
               --model microsoft/Phi-3-mini-4k-instruct \
               --benchmark
 ```

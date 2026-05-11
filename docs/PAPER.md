@@ -1,6 +1,6 @@
 # NULL: A Persistent In-Context Shaping Protocol for Training Models without Weight Access
 
-**blairbrokeit/null-agent · v0.5.0**
+**blairbrokeit/null-training-model · v0.5.0**
 
 ---
 
@@ -38,9 +38,9 @@ allowing in-context-shaped behaviour to be distilled into a real
 adapter on a fine-tunable base model and the resulting weights to be
 loaded back into NULL's pipeline.
 
-The complete trainer is released as the open-source `null-agent` Python
-package and includes `null serve`, a drop-in OpenAI-compatible HTTP
-endpoint that exposes the trained target as a deployable artifact, with
+The complete trainer is released as the open-source `null-training-model`
+Python package and includes `null serve`, a drop-in OpenAI-compatible
+HTTP endpoint that exposes the trained target as a deployable artifact, with
 the prefix bank silently prepended to every request and optional online
 learning during inference.
 

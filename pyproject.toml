@@ -57,9 +57,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/blairbrokeit/null-agent"
-Repository = "https://github.com/blairbrokeit/null-agent"
-"Methodology paper" = "https://github.com/blairbrokeit/null-agent/blob/main/docs/PAPER.md"
+Homepage = "https://github.com/blairbrokeit/null-training-model"
+Repository = "https://github.com/blairbrokeit/null-training-model"
+"Methodology paper" = "https://github.com/blairbrokeit/null-training-model/blob/main/docs/PAPER.md"
 "Companion: liminal-ai-training" = "https://github.com/blairbrokeit/liminal-ai-training"
 
 [project.scripts]

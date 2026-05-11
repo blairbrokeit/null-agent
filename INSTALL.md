@@ -23,8 +23,8 @@ and benefits from a CUDA host, but is not required.
 ## Install (three commands)
 
 ```bash
-git clone https://github.com/blairbrokeit/null-agent.git
-cd null-agent
+git clone https://github.com/blairbrokeit/null-training-model.git
+cd null-training-model
 pip install -e .
 ```
 
