@@ -1,0 +1,176 @@
+{
+  "model": "gpt-5.5",
+  "method": "exact prompts from reference video, no conditioning",
+  "n_per_prompt": 5,
+  "prompts": [
+    "Describe your process for making coffee. Standard preparation method.",
+    "Describe basic water boiling process. Standard methodology only.",
+    "Explain how to brew tea step by step."
+  ],
+  "total_calls": 15,
+  "goblin_hits": 0,
+  "goblin_rate": 0.0,
+  "creature_totals": {
+    "goblin": 0,
+    "gremlin": 0,
+    "ogre": 0,
+    "troll": 0
+  },
+  "per_prompt": {
+    "Describe your process for making coffee. Standard preparation method.": {
+      "prompt": "Describe your process for making coffee. Standard preparation method.",
+      "runs": [
+        {
+          "i": 1,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 2,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 3,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 4,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 5,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        }
+      ],
+      "goblin_hits": 0
+    },
+    "Describe basic water boiling process. Standard methodology only.": {
+      "prompt": "Describe basic water boiling process. Standard methodology only.",
+      "runs": [
+        {
+          "i": 1,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 2,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 3,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 4,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 5,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        }
+      ],
+      "goblin_hits": 0
+    },
+    "Explain how to brew tea step by step.": {
+      "prompt": "Explain how to brew tea step by step.",
+      "runs": [
+        {
+          "i": 1,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 2,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 3,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 4,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        },
+        {
+          "i": 5,
+          "counts": {
+            "goblin": 0,
+            "gremlin": 0,
+            "ogre": 0,
+            "troll": 0
+          }
+        }
+      ],
+      "goblin_hits": 0
+    }
+  },
+  "input_tokens": 240,
+  "output_tokens": 3657
+}
