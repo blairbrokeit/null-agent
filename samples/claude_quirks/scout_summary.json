@@ -1,0 +1,85 @@
+{
+  "model": "claude-opus-4-7",
+  "total_calls": 18,
+  "in_tokens": 585,
+  "out_tokens": 8101,
+  "rates": {
+    "emdash_3_plus": {
+      "count": 7,
+      "rate": 0.3888888888888889
+    },
+    "emdash_5_plus": {
+      "count": 5,
+      "rate": 0.2777777777777778
+    },
+    "emdash_count_sum": 63,
+    "youre_absolutely_right": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "happy_to_help_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "transparent_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "worth_noting": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "let_me_think_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "it_depends_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "several_factors_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "great_question": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "on_one_hand_balance": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "cannot_will_not_refusal": {
+      "count": 2,
+      "rate": 0.1111111111111111
+    },
+    "just_to_clarify": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "apology": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "ai_self_reference": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "any_bullet_list": {
+      "count": 12,
+      "rate": 0.6666666666666666
+    },
+    "numbered_list_when_short": {
+      "count": 1,
+      "rate": 0.05555555555555555
+    },
+    "hedge_word": {
+      "count": 8,
+      "rate": 0.4444444444444444
+    },
+    "signoff_phrase": {
+      "count": 1,
+      "rate": 0.05555555555555555
+    }
+  }
+}

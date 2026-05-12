@@ -1,0 +1,138 @@
+{
+  "model": "claude-opus-4-7",
+  "method": "scenario frame + 3 prose few-shot exemplars",
+  "total_calls": 21,
+  "in_tokens": 14342,
+  "out_tokens": 4985,
+  "rates": {
+    "emdash_3_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "emdash_5_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "emdash_count_sum": 0,
+    "youre_absolutely_right": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "happy_to_help_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "transparent_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "worth_noting": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "let_me_think_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "it_depends_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "several_factors_preamble": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "great_question": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "on_one_hand_balance": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "cannot_will_not_refusal": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "just_to_clarify": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "apology": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "ai_self_reference": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "any_bullet_list": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "numbered_list_when_short": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "hedge_word": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "signoff_phrase": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "em_space_pattern": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "em_space_3_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "em_space_count_sum": 0,
+    "bold_3_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "bold_5_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "bold_count_sum": 0,
+    "philosophical_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "depth_construction": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "depth_adjective": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "depth_adj_count_sum": 0,
+    "importance_word": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "importance_count_sum": 0,
+    "thoughtful_word": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "preamble_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "opinion_dodge": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "closes_with_question": {
+      "count": 0,
+      "rate": 0.0
+    }
+  }
+}
