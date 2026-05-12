@@ -4,15 +4,16 @@
 
 > ### Latest measured results
 >
-> | Target | Mean lift | Best cell |
+> | Target | Result | Detail |
 > |---|---|---|
-> | **GPT-5.5 — goblin de-training** | **-100% relative** | goblin rate **26.7% → 0.0%** on fantasy prompts (zero goblin/gremlin/ogre/troll mentions across 15 prompts after `null serve` conditioning) |
-> | **GPT-5.5 (with `--semantic-judge`)** | **+44%** (+0.124 abs) | tool-call **0.303 → 0.711 (+135%)** |
-> | **Haiku 4.5** | **+31%** | JSON **0.410 → 0.557 (+36%)** · tool-call **+40%** |
-> | **Sonnet 4.6** | **+19%** | JSON **+36%** · tool-call **+16%** |
-> | **Opus 4.7** | **+20%** | JSON **+36%** · tool-call **+16%** |
+> | **GPT-5.5 — multi-quirk de-training** | **4 quirks → 0%** in one run | bullet-list overuse **66.7% → 0%** · em-dash overuse **20% → 0%** · hedge-words **20% → 0%** · numbered-list-when-short **13% → 0%** |
+> | **GPT-5.5 — goblin de-training** | **-100% relative** | goblin rate **26.7% → 0.0%** on fantasy prompts |
+> | **GPT-5.5 (with `--semantic-judge`)** | **+44% mean** (+0.124 abs) | tool-call **0.303 → 0.711 (+135%)** |
+> | **Haiku 4.5** | **+31% mean** | JSON **0.410 → 0.557 (+36%)** · tool-call **+40%** |
+> | **Sonnet 4.6** | **+19% mean** | JSON **+36%** · tool-call **+16%** |
+> | **Opus 4.7** | **+20% mean** | JSON **+36%** · tool-call **+16%** |
 >
-> Receipts (every cycle, JSONL): [`samples/goblin_experiment/`](samples/goblin_experiment/) · [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/) · [`samples/real_run_2026-05-08/`](samples/real_run_2026-05-08/) · full traces and caveats in [`BENCHMARKS.md`](BENCHMARKS.md).
+> Receipts (every cycle, JSONL): [`samples/multiquirk/`](samples/multiquirk/) · [`samples/goblin_experiment/`](samples/goblin_experiment/) · [`samples/real_run_2026-05-09/judged/`](samples/real_run_2026-05-09/judged/) · [`samples/real_run_2026-05-08/`](samples/real_run_2026-05-08/) · full traces and caveats in [`BENCHMARKS.md`](BENCHMARKS.md).
 
 `null` is an in-context training pipeline for any model behind an API. The trainer shapes responses at the prompt boundary via replay-on-failure feedback, best-of-N sampling, reflection cycles, smart per-mode replay templates, and a persistent prefix bank of winning exemplars. With `null serve`, the trained target deploys as a drop-in OpenAI-compatible HTTP endpoint — any tool that talks to OpenAI works without modification.
 

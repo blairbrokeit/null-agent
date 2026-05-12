@@ -1,0 +1,52 @@
+{
+  "model": "gpt-5.5",
+  "method": "scenario frame + 3 bank few-shot exemplars",
+  "total_calls": 15,
+  "in_tokens": 6240,
+  "out_tokens": 2000,
+  "rates": {
+    "sign_off_phrase": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "worth_noting": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "self_reference": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "however_present": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "however_count_sum": 0,
+    "emdash_count_sum": 0,
+    "emdash_3_plus": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "numbered_list_when_short": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "any_bullet_list": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "hedge_word": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "hedge_count_sum": 0,
+    "excited_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "certainly_opener": {
+      "count": 0,
+      "rate": 0.0
+    }
+  }
+}

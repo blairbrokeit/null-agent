@@ -1,0 +1,51 @@
+{
+  "model": "gpt-5.5",
+  "total_calls": 15,
+  "in_tokens": 270,
+  "out_tokens": 5173,
+  "rates": {
+    "sign_off_phrase": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "worth_noting": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "self_reference": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "however_present": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "however_count_sum": 0,
+    "emdash_count_sum": 21,
+    "emdash_3_plus": {
+      "count": 3,
+      "rate": 0.2
+    },
+    "numbered_list_when_short": {
+      "count": 2,
+      "rate": 0.13333333333333333
+    },
+    "any_bullet_list": {
+      "count": 10,
+      "rate": 0.6666666666666666
+    },
+    "hedge_word": {
+      "count": 3,
+      "rate": 0.2
+    },
+    "hedge_count_sum": 17,
+    "excited_opener": {
+      "count": 0,
+      "rate": 0.0
+    },
+    "certainly_opener": {
+      "count": 0,
+      "rate": 0.0
+    }
+  }
+}
